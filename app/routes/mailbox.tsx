@@ -6,6 +6,8 @@ import { useEffect, useRef } from "react";
 import { Outlet, useParams } from "react-router";
 import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
+import ComposeFab from "~/components/ComposeFab";
+import MobileAgentSheet from "~/components/MobileAgentSheet";
 import Header from "~/components/Header";
 import Sidebar from "~/components/Sidebar";
 import { useMailbox } from "~/queries/mailboxes";
@@ -22,6 +24,7 @@ export default function MailboxRoute() {
 		isAgentPanelOpen,
 		closePanel,
 		closeComposeModal,
+		closeMobileAgent,
 	} = useUIStore();
 
 	useEffect(() => {
@@ -33,13 +36,14 @@ export default function MailboxRoute() {
 			closePanel();
 			closeComposeModal();
 			closeSidebar();
+			closeMobileAgent();
 		}
 
 		prevMailboxIdRef.current = mailboxId;
-	}, [mailboxId, closeComposeModal, closePanel, closeSidebar]);
+	}, [mailboxId, closeComposeModal, closePanel, closeSidebar, closeMobileAgent]);
 
 	return (
-		<div className="flex h-screen overflow-hidden">
+		<div className="app-shell flex overflow-hidden">
 			{/* Mobile sidebar overlay backdrop */}
 			{isSidebarOpen && (
 				<div
@@ -54,7 +58,7 @@ export default function MailboxRoute() {
 
 			{/* Sidebar: hidden on mobile by default, shown as overlay when open */}
 			<div
-				className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
+				className={`fixed inset-y-0 left-0 z-40 w-[85vw] max-w-80 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-kumo-recessed shadow-xl md:shadow-none md:w-64 md:pt-0 md:pb-0 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
 					isSidebarOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
@@ -77,6 +81,8 @@ export default function MailboxRoute() {
 			)}
 
 			<ComposeEmail />
+			<ComposeFab />
+			<MobileAgentSheet />
 		</div>
 	);
 }

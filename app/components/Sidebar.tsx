@@ -122,7 +122,7 @@ export default function Sidebar() {
 	};
 
 	return (
-		<aside className="h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
+		<aside className="h-full w-full md:w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
 			{/* Back + identity */}
 			<div className="px-4 pt-4 pb-1">
 				<div className="flex items-center justify-between mb-2.5">

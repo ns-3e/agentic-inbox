@@ -10,7 +10,7 @@ export default function NotFoundRoute() {
 	const navigate = useNavigate();
 
 	return (
-		<div className="flex items-center justify-center min-h-screen">
+		<div className="page-scroll flex items-center justify-center">
 			<Empty
 				icon={<WarningIcon size={48} className="text-kumo-inactive" />}
 				title="404 -- Page Not Found"

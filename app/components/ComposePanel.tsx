@@ -108,7 +108,12 @@ export default function ComposePanel() {
 								To
 							</label>
 							<div className="flex-1 flex items-center gap-2 min-w-0">
+								<div className="flex-1 min-w-0">
 								<Input
+									className="w-full"
+									inputMode="email"
+									autoCapitalize="off"
+									autoCorrect="off"
 									type="text"
 									placeholder="recipient@example.com"
 									size="sm"
@@ -116,6 +121,7 @@ export default function ComposePanel() {
 									onChange={(e) => setTo(e.target.value)}
 									required
 								/>
+								</div>
 								{!showCcBcc && (
 									<button
 										type="button"
@@ -135,6 +141,9 @@ export default function ComposePanel() {
 								</label>
 								<div className="flex-1">
 									<Input
+										className="w-full"
+										inputMode="email"
+										autoCapitalize="off"
 										type="text"
 										size="sm"
 										value={cc}
@@ -152,6 +161,9 @@ export default function ComposePanel() {
 								</label>
 								<div className="flex-1">
 									<Input
+										className="w-full"
+										inputMode="email"
+										autoCapitalize="off"
 										type="text"
 										size="sm"
 										value={bcc}
@@ -168,6 +180,7 @@ export default function ComposePanel() {
 							</label>
 							<div className="flex-1">
 								<Input
+									className="w-full"
 									type="text"
 									placeholder="Email subject"
 									size="sm"
@@ -188,7 +201,7 @@ export default function ComposePanel() {
 				</div>
 
 				{/* Footer actions */}
-				<div className="mt-auto px-4 py-3 border-t border-kumo-line bg-kumo-fill/30 shrink-0 md:px-6">
+				<div className="mt-auto px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3 border-t border-kumo-line bg-kumo-fill/30 shrink-0 md:px-6">
 					<div className="flex items-center justify-between">
 						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending}>
 							Discard

@@ -8,6 +8,7 @@ import {
 	ArrowBendUpLeftIcon,
 	ArrowBendUpRightIcon,
 	ArrowLeftIcon,
+	ArchiveIcon,
 	ChatCircleIcon,
 	CodeIcon,
 	EnvelopeOpenIcon,
@@ -59,13 +60,14 @@ export default function EmailPanelToolbar({
 	onViewSource,
 	onDelete,
 }: EmailPanelToolbarProps) {
+	const canArchive = moveToFolders.some((f) => f.id === "archive");
 	return (
-		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
+		<div className="flex items-center gap-0.5 md:gap-1 px-1.5 py-1 md:px-4 md:py-2 border-b border-kumo-line shrink-0 [&_button]:max-md:h-11 [&_button]:max-md:min-w-11">
 			<Button
 				variant="ghost"
 				shape="square"
 				size="sm"
-				icon={<ArrowLeftIcon size={18} />}
+				icon={<ArrowLeftIcon size={22} />}
 				onClick={onBack}
 				aria-label="Back to list"
 				className="md:hidden shrink-0"
@@ -92,7 +94,7 @@ export default function EmailPanelToolbar({
 					</Button>
 				</>
 			) : (
-				<>
+				<div className="hidden md:flex items-center gap-1">
 					<Tooltip content="Reply" side="bottom" asChild>
 						<Button
 							variant="ghost"
@@ -123,10 +125,33 @@ export default function EmailPanelToolbar({
 							aria-label="Forward"
 						/>
 					</Tooltip>
-				</>
+				</div>
 			)}
 
-			<div className="h-5 w-px bg-kumo-fill mx-0.5" />
+			<div className="hidden md:block h-5 w-px bg-kumo-fill mx-0.5" />
+
+			{/* Phones: Archive and Delete up front, like Gmail */}
+			<div className="md:hidden ml-auto" />
+			{canArchive && (
+				<Button
+					variant="ghost"
+					shape="square"
+					size="sm"
+					icon={<ArchiveIcon size={22} />}
+					onClick={() => onMove("archive")}
+					aria-label="Archive"
+					className="md:hidden"
+				/>
+			)}
+			<Button
+				variant="ghost"
+				shape="square"
+				size="sm"
+				icon={<TrashIcon size={22} />}
+				onClick={onDelete}
+				aria-label="Delete"
+				className="md:hidden"
+			/>
 
 			<Tooltip content={email.starred ? "Unstar" : "Star"} side="bottom" asChild>
 				<Button
@@ -158,7 +183,7 @@ export default function EmailPanelToolbar({
 
 			<MoveToFolderMenu folders={moveToFolders} onMove={onMove} />
 
-			<div className="ml-auto flex items-center gap-0.5">
+			<div className="hidden md:flex ml-auto items-center gap-0.5">
 				<Tooltip content="View source" side="bottom" asChild>
 					<Button
 						variant="ghost"
@@ -221,14 +246,14 @@ function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id:
 				/>
 			</Tooltip>
 			{open && (
-				<div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] rounded-lg border border-kumo-line bg-kumo-elevated shadow-lg py-1">
+				<div className="absolute top-full right-0 md:right-auto md:left-0 z-50 mt-1 min-w-[180px] rounded-lg border border-kumo-line bg-kumo-elevated shadow-lg py-1">
 					<div className="px-3 py-1.5 text-xs font-medium text-kumo-subtle">Move to</div>
 					<div className="h-px bg-kumo-line my-1" />
 					{folders.map((f) => (
 						<button
 							key={f.id}
 							type="button"
-							className="w-full text-left px-3 py-1.5 text-sm text-kumo-default hover:bg-kumo-overlay transition-colors"
+							className="w-full text-left px-3 py-2.5 md:py-1.5 text-[15px] md:text-sm text-kumo-default hover:bg-kumo-overlay transition-colors"
 							onClick={() => { onMove(f.id); setOpen(false); }}
 						>
 							{f.name}

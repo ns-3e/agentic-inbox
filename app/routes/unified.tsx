@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet } from "react-router";
 import { UNIFIED_AGENT_NAME } from "shared/agents";
 import AgentSidebar from "~/components/AgentSidebar";
+import ComposeFab from "~/components/ComposeFab";
+import MobileAgentSheet from "~/components/MobileAgentSheet";
 import { setMailboxOrder } from "~/components/EmailListRow";
 import Header from "~/components/Header";
 import UnifiedSidebar from "~/components/UnifiedSidebar";
@@ -77,7 +79,7 @@ export default function UnifiedLayout() {
 
 	return (
 		<ActiveMailboxContext.Provider value={activeMailbox}>
-			<div className="flex h-screen overflow-hidden">
+			<div className="app-shell flex overflow-hidden">
 				{isSidebarOpen && (
 					<div
 						className="fixed inset-0 z-30 bg-black/30 md:hidden"
@@ -89,7 +91,7 @@ export default function UnifiedLayout() {
 					/>
 				)}
 				<div
-					className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
+					className={`fixed inset-y-0 left-0 z-40 w-[85vw] max-w-80 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-kumo-recessed shadow-xl md:shadow-none md:w-64 md:pt-0 md:pb-0 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-0 ${
 						isSidebarOpen ? "translate-x-0" : "-translate-x-full"
 					}`}
 				>
@@ -108,6 +110,8 @@ export default function UnifiedLayout() {
 						<AgentSidebar agentName={UNIFIED_AGENT_NAME} />
 					</div>
 				)}
+				<ComposeFab />
+				<MobileAgentSheet agentName={UNIFIED_AGENT_NAME} />
 			</div>
 		</ActiveMailboxContext.Provider>
 	);

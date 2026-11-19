@@ -3,6 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useKumoToastManager } from "@cloudflare/kumo";
+import { ArrowBendDoubleUpLeftIcon, ArrowBendUpLeftIcon, ArrowBendUpRightIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Folders } from "shared/folders";
@@ -27,6 +28,19 @@ function EmailPanelSkeleton() {
 			<div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-kumo-fill" /><div className="space-y-2 flex-1"><div className="h-3 w-40 rounded bg-kumo-fill" /><div className="h-2.5 w-24 rounded bg-kumo-fill" /></div></div>
 			<div className="space-y-2 pt-4"><div className="h-2.5 w-full rounded bg-kumo-fill" /><div className="h-2.5 w-5/6 rounded bg-kumo-fill" /><div className="h-2.5 w-4/6 rounded bg-kumo-fill" /><div className="h-2.5 w-3/4 rounded bg-kumo-fill" /></div>
 		</div>
+	);
+}
+
+function MobileReplyButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-full border border-kumo-line bg-kumo-base text-sm font-medium text-kumo-default active:bg-kumo-tint cursor-pointer"
+		>
+			{icon}
+			{label}
+		</button>
 	);
 }
 
@@ -218,6 +232,15 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					/>
 				)}
 			</div>
+
+			{/* Phones: Gmail-style reply bar at the bottom of the reader */}
+			{!isDraftFolder && draftMessageIds.size === 0 && (
+				<div className="md:hidden shrink-0 border-t border-kumo-line bg-kumo-base px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex gap-2">
+					<MobileReplyButton icon={<ArrowBendUpLeftIcon size={18} />} label="Reply" onClick={() => startCompose({ mode: "reply", originalEmail: lastReceivedMessage })} />
+					<MobileReplyButton icon={<ArrowBendDoubleUpLeftIcon size={18} />} label="Reply all" onClick={() => startCompose({ mode: "reply-all", originalEmail: lastReceivedMessage })} />
+					<MobileReplyButton icon={<ArrowBendUpRightIcon size={18} />} label="Forward" onClick={() => startCompose({ mode: "forward", originalEmail: email })} />
+				</div>
+			)}
 
 			<EmailPanelDialogs
 				sourceViewEmail={sourceViewEmail}

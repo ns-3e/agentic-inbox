@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import DOMPurify from "dompurify";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface EmailIframeProps {
 	body: string;
@@ -55,9 +55,12 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 		return () => window.removeEventListener("message", handleMessage);
 	}, [handleMessage]);
 
-	useEffect(() => {
-		const iframe = iframeRef.current;
-		if (!iframe || !body) return;
+	// Build the document up front and hand it to the iframe as `srcDoc`, keyed
+	// by content, so each email gets a fresh frame that already has its content.
+	// Assigning `srcdoc` after mount sometimes left the frame unpainted until
+	// the next layout (blank email body).
+	const srcDoc = useMemo(() => {
+		if (!body || typeof window === "undefined") return "";
 
 		const cleanBody = DOMPurify.sanitize(body, {
 			USE_PROFILES: { html: true },
@@ -86,7 +89,7 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 
 		// Use srcdoc so the iframe is truly sandboxed (no same-origin access).
 		// We can't use doc.write() because that requires allow-same-origin.
-		iframe.srcdoc = `<!DOCTYPE html>
+		return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -141,7 +144,9 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 
 	return (
 		<iframe
+			key={srcDoc}
 			ref={iframeRef}
+			srcDoc={srcDoc}
 			className="block w-full border-0"
 			style={autoSize ? { height: `${height}px` } : { height: "100%" }}
 			sandbox="allow-scripts allow-popups allow-top-navigation-by-user-activation"

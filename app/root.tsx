@@ -12,7 +12,7 @@ import {
 } from "@cloudflare/kumo";
 import { WarningIcon } from "@phosphor-icons/react";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { forwardRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import {
 	isRouteErrorResponse,
 	Links,
@@ -87,7 +87,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
 					href="/favicon.ico"
 					sizes="48x48 32x32 16x16"
 				/>
-				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+				<meta
+					name="viewport"
+					content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+				/>
+				{/* Installable home-screen app (Share → Add to Home Screen). The
+				    manifest is fetched with credentials so Cloudflare Access lets it through. */}
+				<link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
+				<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+				<meta name="mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-capable" content="yes" />
+				<meta name="apple-mobile-web-app-title" content="Inbox" />
+				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+				<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+				<meta name="theme-color" content="#1c1c1c" media="(prefers-color-scheme: dark)" />
+				<meta name="format-detection" content="telephone=no" />
 				<title>Agentic Inbox</title>
 				<Meta />
 				<Links />
@@ -103,7 +117,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export function HydrateFallback() {
 	return (
-		<div className="flex items-center justify-center h-screen">
+		<div className="flex items-center justify-center h-dvh">
 			<Loader size="lg" />
 		</div>
 	);
@@ -113,6 +127,13 @@ export default function App() {
 	// Use useState to ensure each SSR request gets a fresh client while the
 	// browser reuses the same singleton across navigations.
 	const [queryClient] = useState(getQueryClient);
+
+	// Register the (pass-through) service worker that makes the app installable.
+	useEffect(() => {
+		if (import.meta.env.PROD && "serviceWorker" in navigator) {
+			navigator.serviceWorker.register("/sw.js").catch(() => {});
+		}
+	}, []);
 	return (
 		<QueryClientProvider client={queryClient}>
 			<LinkProvider component={KumoLink}>
@@ -146,7 +167,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
 	}
 
 	return (
-		<div className="flex items-center justify-center min-h-screen p-8">
+		<div className="page-scroll flex items-center justify-center p-8">
 			<Empty
 				icon={<WarningIcon size={48} className="text-kumo-inactive" />}
 				title={status === 404 ? "404 — Page not found" : title}

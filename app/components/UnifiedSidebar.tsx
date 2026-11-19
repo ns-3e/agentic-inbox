@@ -51,7 +51,7 @@ export default function UnifiedSidebar({
 		summaries.reduce((sum, m) => sum + unreadIn(m, folderId), 0);
 
 	return (
-		<aside className="h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
+		<aside className="h-full w-full md:w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
 			<div className="px-4 pt-4 pb-1">
 				<button
 					type="button"

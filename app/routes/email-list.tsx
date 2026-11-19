@@ -19,6 +19,8 @@ import { useParams } from "react-router";
 import { Folders } from "shared/folders";
 import EmailListRow, { emailHasUnread } from "~/components/EmailListRow";
 import MailboxSplitView from "~/components/MailboxSplitView";
+import PullToRefresh from "~/components/PullToRefresh";
+import { useSwipeActions } from "~/hooks/useSwipeActions";
 import {
 	useDeleteEmail,
 	useEmails,
@@ -222,14 +224,17 @@ export default function EmailListRoute() {
 		}
 	};
 
-	const handleRefresh = () => {
-		if (mailboxId) {
-			queryClient.invalidateQueries({ queryKey: ["emails", mailboxId] });
-			queryClient.invalidateQueries({
-				queryKey: queryKeys.folders.list(mailboxId),
-			});
-		}
-	};
+	const handleRefresh = () =>
+		mailboxId
+			? Promise.all([
+					queryClient.invalidateQueries({ queryKey: ["emails", mailboxId] }),
+					queryClient.invalidateQueries({
+						queryKey: queryKeys.folders.list(mailboxId),
+					}),
+				])
+			: undefined;
+
+	const swipeFor = useSwipeActions(folder || "inbox", () => mailboxId);
 
 	const hasUnread = emailHasUnread;
 
@@ -257,8 +262,8 @@ export default function EmailListRoute() {
 			isComposing={isComposing}
 		>
 				{/* Folder header */}
-				<div className="flex items-center justify-between px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-					<h1 className="text-lg font-semibold text-kumo-default">
+				<div className="flex items-center justify-between px-4 py-2 md:py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+					<h1 className="text-sm md:text-lg font-medium md:font-semibold text-kumo-subtle md:text-kumo-default uppercase md:normal-case tracking-wide md:tracking-normal">
 						{folderName}
 					</h1>
 					<div className="flex items-center gap-1">
@@ -291,7 +296,7 @@ export default function EmailListRoute() {
 				</div>
 
 				{/* Email rows */}
-				<div className="flex-1 overflow-y-auto">
+				<PullToRefresh onRefresh={handleRefresh} className="flex-1 pb-24 md:pb-0">
 				{isRefreshing && emails.length === 0 ? (
 					<EmailListSkeleton />
 				) : emails.length > 0 ? (
@@ -306,6 +311,7 @@ export default function EmailListRoute() {
 									onToggleStar={toggleStar}
 									onToggleRead={toggleRead}
 									onDelete={(e) => handleDelete(e.id)}
+									{...swipeFor(email)}
 								/>
 							))}
 						</div>
@@ -315,7 +321,7 @@ export default function EmailListRoute() {
 							onCompose={() => startCompose()}
 						/>
 					)}
-				</div>
+				</PullToRefresh>
 
 				{/* Pagination */}
 				{totalCount > PAGE_SIZE && (

@@ -140,7 +140,7 @@ export default function HomeRoute() {
 	const isLoading = !configData;
 
 	return (
-		<div className="min-h-screen bg-kumo-recessed">
+		<div className="page-scroll bg-kumo-recessed pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
 			<div className="mx-auto max-w-2xl px-4 py-8 md:px-6 md:py-16">
 				<div className="mb-8">
 					<div className="flex items-center justify-between">

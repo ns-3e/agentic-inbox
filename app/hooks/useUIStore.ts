@@ -33,9 +33,12 @@ interface UIState {
 	closeSidebar: () => void;
 	toggleSidebar: () => void;
 
-	// Agent panel
+	// Agent panel (desktop side panel) and full-screen sheet (phones/tablets)
 	isAgentPanelOpen: boolean;
 	toggleAgentPanel: () => void;
+	isMobileAgentOpen: boolean;
+	openMobileAgent: () => void;
+	closeMobileAgent: () => void;
 
 	// Legacy dialog support (kept for non-split views)
 	isComposeModalOpen: boolean;
@@ -51,6 +54,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 	isComposeModalOpen: false,
 	isSidebarOpen: false,
 	isAgentPanelOpen: true,
+	isMobileAgentOpen: false,
 
 	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
 
@@ -83,6 +87,8 @@ export const useUIStore = create<UIState>((set, get) => ({
 	toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen }),
 
 	toggleAgentPanel: () => set({ isAgentPanelOpen: !get().isAgentPanelOpen }),
+	openMobileAgent: () => set({ isMobileAgentOpen: true, isSidebarOpen: false }),
+	closeMobileAgent: () => set({ isMobileAgentOpen: false }),
 
 	openComposeModal: (options) =>
 		set({

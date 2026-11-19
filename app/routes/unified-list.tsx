@@ -10,6 +10,8 @@ import { Navigate, useParams } from "react-router";
 import { Folders, getFolderDisplayName } from "shared/folders";
 import EmailListRow, { emailHasUnread } from "~/components/EmailListRow";
 import MailboxSplitView from "~/components/MailboxSplitView";
+import PullToRefresh from "~/components/PullToRefresh";
+import { useSwipeActions } from "~/hooks/useSwipeActions";
 import { useActiveMailbox } from "~/hooks/useActiveMailbox";
 import { useUIStore } from "~/hooks/useUIStore";
 import {
@@ -71,6 +73,9 @@ export default function UnifiedListRoute() {
 		refetchInterval: 30_000,
 	});
 
+	const swipeFor = useSwipeActions(folder, (e) => e.mailbox_id);
+	const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.unified.all });
+
 	const emails = data?.emails ?? [];
 	const totalCount = data?.totalCount ?? 0;
 	const failed = data?.failed ?? [];
@@ -131,8 +136,8 @@ export default function UnifiedListRoute() {
 
 	return (
 		<MailboxSplitView selectedEmailId={selectedEmailId} isComposing={isComposing}>
-			<div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-kumo-line shrink-0 md:px-5">
-				<h1 className="text-lg font-semibold text-kumo-default truncate">{title}</h1>
+			<div className="flex items-center justify-between gap-2 px-4 py-2 md:py-3.5 border-b border-kumo-line shrink-0 md:px-5">
+				<h1 className="text-sm md:text-lg font-medium md:font-semibold text-kumo-subtle md:text-kumo-default truncate uppercase md:normal-case tracking-wide md:tracking-normal">{title}</h1>
 				<div className="flex items-center gap-1 shrink-0">
 					{totalCount > 0 && (
 						<span className="text-sm text-kumo-subtle mr-2 hidden sm:inline">
@@ -146,7 +151,7 @@ export default function UnifiedListRoute() {
 							shape="square"
 							size="sm"
 							icon={<ArrowsClockwiseIcon size={18} className={isFetching ? "animate-spin" : ""} />}
-							onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.unified.all })}
+							onClick={refresh}
 							disabled={isFetching}
 							aria-label="Refresh"
 						/>
@@ -160,7 +165,7 @@ export default function UnifiedListRoute() {
 				</div>
 			)}
 
-			<div className="flex-1 overflow-y-auto">
+			<PullToRefresh onRefresh={refresh} className="flex-1 pb-24 md:pb-0">
 				{error ? (
 					<div className="p-4">
 						<Banner variant="error" text={(error as Error).message || "Failed to load emails."} />
@@ -179,6 +184,7 @@ export default function UnifiedListRoute() {
 							onToggleStar={toggleStar}
 							onToggleRead={toggleRead}
 							onDelete={handleDelete}
+							{...swipeFor(email)}
 						/>
 					))
 				) : (
@@ -190,7 +196,7 @@ export default function UnifiedListRoute() {
 						</p>
 					</div>
 				)}
-			</div>
+			</PullToRefresh>
 
 			{totalCount > PAGE_SIZE && (
 				<div className="flex justify-center py-3 border-t border-kumo-line shrink-0">
