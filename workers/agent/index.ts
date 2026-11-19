@@ -15,9 +15,11 @@ import type { EmailFull, EmailMetadata } from "../lib/schemas";
 import { verifyDraft, isPromptInjection } from "../lib/ai";
 import {
 	getMailboxStub,
+	listMailboxes,
 	stripHtmlToText,
 	textToHtml,
 } from "../lib/email-helpers";
+import { UNIFIED_AGENT_NAME } from "../../shared/agents";
 import {
 	toolListEmails,
 	toolGetEmail,
@@ -269,6 +271,209 @@ function createEmailTools(env: Env, mailboxId: string) {
 	};
 }
 
+// ── Unified (all mailboxes) agent ──────────────────────────────────
+
+const UNIFIED_LIST_CAP = 50;
+
+const mailboxParam = z
+	.string()
+	.describe(
+		"The mailbox address this email belongs to, e.g. 'info@example.com'. Use the `mailbox` field from list_emails or search_emails results.",
+	);
+
+const optionalMailboxParam = z
+	.string()
+	.optional()
+	.describe(
+		"Optional mailbox address to restrict to. Omit to cover every mailbox.",
+	);
+
+function sortNewestFirst<T extends { date?: string }>(rows: T[]): T[] {
+	return rows.sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? 1 : (a.date ?? "") > (b.date ?? "") ? -1 : 0));
+}
+
+/**
+ * Tools for the "All inboxes" agent. Mailbox-specific actions take a
+ * `mailbox` argument and delegate to the per-mailbox tools (so all the same
+ * safeguards apply); list/search fan out across every mailbox when no
+ * mailbox is given, and tag each result with the mailbox it came from.
+ */
+function createUnifiedEmailTools(env: Env, mailboxIds: string[]) {
+	const known = new Set(mailboxIds.map((m) => m.toLowerCase()));
+	const resolve = (mailbox: string): string => {
+		const id = mailbox.trim().toLowerCase();
+		if (!known.has(id)) {
+			throw new Error(`Unknown mailbox "${mailbox}". Valid mailboxes: ${mailboxIds.join(", ")}`);
+		}
+		return id;
+	};
+	const perMailbox = (mailbox: string) => createEmailTools(env, resolve(mailbox));
+	const tagged = async (mailbox: string, run: () => Promise<unknown>) => {
+		const result = await run();
+		return result && typeof result === "object" && !Array.isArray(result)
+			? { ...(result as object), mailbox }
+			: { result, mailbox };
+	};
+	const fanOut = async (
+		mailbox: string | undefined,
+		fetchOne: (id: string) => Promise<unknown>,
+		cap: number,
+	) => {
+		const ids = mailbox ? [resolve(mailbox)] : mailboxIds;
+		const settled = await Promise.allSettled(ids.map(fetchOne));
+		const rows: any[] = [];
+		const failed: string[] = [];
+		settled.forEach((r, i) => {
+			if (r.status === "fulfilled" && Array.isArray(r.value)) {
+				rows.push(...r.value.map((e: any) => ({ ...e, mailbox: ids[i] })));
+			} else if (r.status === "rejected") {
+				failed.push(ids[i]);
+			}
+		});
+		const emails = sortNewestFirst(rows).slice(0, cap);
+		return failed.length ? { emails, failed_mailboxes: failed } : emails;
+	};
+
+	return {
+		list_mailboxes: defineTool({
+			description: "List every mailbox (email address) the operator has, with unread counts per folder.",
+			parameters: z.object({}),
+			execute: async (): Promise<unknown> => {
+				const settled = await Promise.allSettled(
+					mailboxIds.map(async (id) => {
+						const folders = await getMailboxStub(env, id).getFolders();
+						const unread = Object.fromEntries(
+							folders.filter((f: any) => f.unreadCount > 0).map((f: any) => [f.id, f.unreadCount]),
+						);
+						return { mailbox: id, unread };
+					}),
+				);
+				return settled.map((r, i) =>
+					r.status === "fulfilled" ? r.value : { mailbox: mailboxIds[i], error: "unavailable" },
+				);
+			},
+		}),
+
+		list_emails: defineTool({
+			description:
+				"List emails in a folder across ALL mailboxes (newest first), or in one mailbox if `mailbox` is given. Each result includes a `mailbox` field naming the mailbox it belongs to.",
+			parameters: z.object({
+				mailbox: optionalMailboxParam,
+				folder: z.string().default(Folders.INBOX).describe(FOLDER_TOOL_DESCRIPTION),
+				limit: z.number().default(20).describe("Maximum number of emails to return in total"),
+			}),
+			execute: async ({ mailbox, folder, limit }): Promise<unknown> => {
+				const cap = Math.min(Math.max(limit ?? 20, 1), UNIFIED_LIST_CAP);
+				return fanOut(mailbox, (id) => toolListEmails(env, id, { folder, limit: cap, page: 1 }), cap);
+			},
+		}),
+
+		search_emails: defineTool({
+			description:
+				"Search emails by subject, body, sender and recipients across ALL mailboxes, or in one mailbox if `mailbox` is given. Each result includes a `mailbox` field.",
+			parameters: z.object({
+				query: z.string().describe("Search query"),
+				mailbox: optionalMailboxParam,
+				folder: z.string().optional().describe("Optional folder to restrict search to"),
+			}),
+			execute: async ({ query, mailbox, folder }): Promise<unknown> => {
+				return fanOut(mailbox, (id) => toolSearchEmails(env, id, { query, folder }), UNIFIED_LIST_CAP);
+			},
+		}),
+
+		get_email: defineTool({
+			description: "Get a single email with its full body content and attachments.",
+			parameters: z.object({ mailbox: mailboxParam, emailId: z.string().describe("The email ID") }),
+			execute: async ({ mailbox, emailId }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).get_email.execute({ emailId })),
+		}),
+
+		get_thread: defineTool({
+			description:
+				"Get all emails in a conversation thread. Read this before drafting a reply.",
+			parameters: z.object({
+				mailbox: mailboxParam,
+				threadId: z.string().describe("The thread_id from an email"),
+			}),
+			execute: async ({ mailbox, threadId }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).get_thread.execute({ threadId })),
+		}),
+
+		draft_email: defineTool({
+			description:
+				"Draft a new email (not a reply) from the given mailbox and save it to that mailbox's Drafts folder. Does NOT send. Plain text body only.",
+			parameters: z.object({
+				mailbox: mailboxParam.describe("The mailbox to send from"),
+				to: z.string().email().describe("Recipient email address"),
+				subject: z.string().describe("Subject line"),
+				body: z.string().describe("The plain text body of the email"),
+			}),
+			execute: async ({ mailbox, ...args }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).draft_email.execute(args)),
+		}),
+
+		draft_reply: defineTool({
+			description:
+				"Draft a reply to an existing email and save it to the Drafts folder of the mailbox that received the email. Does NOT send. Plain text body only.",
+			parameters: z.object({
+				mailbox: mailboxParam,
+				originalEmailId: z.string().describe("The ID of the email being replied to"),
+				to: z.string().email().describe("Recipient email address"),
+				subject: z.string().describe("Subject line (usually 'Re: ...')"),
+				body: z.string().describe("The plain text body of the reply"),
+			}),
+			execute: async ({ mailbox, ...args }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).draft_reply.execute(args)),
+		}),
+
+		mark_email_read: defineTool({
+			description: "Mark an email as read or unread.",
+			parameters: z.object({
+				mailbox: mailboxParam,
+				emailId: z.string().describe("The email ID"),
+				read: z.boolean().describe("true to mark as read, false for unread"),
+			}),
+			execute: async ({ mailbox, ...args }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).mark_email_read.execute(args)),
+		}),
+
+		move_email: defineTool({
+			description: "Move an email to a different folder (inbox, sent, draft, archive, trash).",
+			parameters: z.object({
+				mailbox: mailboxParam,
+				emailId: z.string().describe("The email ID"),
+				folderId: z.string().describe(MOVE_FOLDER_TOOL_DESCRIPTION),
+			}),
+			execute: async ({ mailbox, ...args }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).move_email.execute(args)),
+		}),
+
+		discard_draft: defineTool({
+			description: "Delete a draft email that is no longer needed.",
+			parameters: z.object({
+				mailbox: mailboxParam,
+				draftId: z.string().describe("The ID of the draft to delete"),
+			}),
+			execute: async ({ mailbox, ...args }): Promise<unknown> =>
+				tagged(resolve(mailbox), () => perMailbox(mailbox).discard_draft.execute(args)),
+		}),
+	};
+}
+
+function getUnifiedSystemPrompt(mailboxIds: string[]): string {
+	return `${DEFAULT_SYSTEM_PROMPT}
+
+## Multiple Mailboxes
+You are working in the operator's "All inboxes" view. You manage these ${mailboxIds.length} mailboxes for the same operator:
+${mailboxIds.map((m) => `- ${m}`).join("\n")}
+
+- list_emails and search_emails cover every mailbox when you omit \`mailbox\`. Each result has a \`mailbox\` field.
+- Every other tool needs the \`mailbox\` argument. Always pass the exact \`mailbox\` value from the result you are acting on. Email IDs are only valid inside their own mailbox.
+- Reply from the mailbox that received the email. For a new email, ask which mailbox to send from if the operator did not say.
+- When you mention an email in chat, say which mailbox it is in.
+- Use list_mailboxes to see unread counts per mailbox.`;
+}
+
 // Use `any` for the Env generic to avoid type conflicts between the custom
 // SEND_EMAIL binding shape and the AIChatAgent constraint.  The actual env
 // is fully typed inside the tools via the closure.
@@ -277,8 +482,16 @@ export class EmailAgent extends AIChatAgent<any> {
 		const env = this.env as Env;
 		const mailboxId = this.name;
 		const workersai = createWorkersAI({ binding: env.AI });
-		const tools = createEmailTools(env, mailboxId);
-		const systemPrompt = await getSystemPrompt(env, mailboxId);
+		let tools: Record<string, ReturnType<typeof defineTool>>;
+		let systemPrompt: string;
+		if (mailboxId === UNIFIED_AGENT_NAME) {
+			const mailboxIds = (await listMailboxes(env.BUCKET)).map((m) => m.id);
+			tools = createUnifiedEmailTools(env, mailboxIds);
+			systemPrompt = getUnifiedSystemPrompt(mailboxIds);
+		} else {
+			tools = createEmailTools(env, mailboxId);
+			systemPrompt = await getSystemPrompt(env, mailboxId);
+		}
 
 		const result = streamText({
 			model: workersai("@cf/moonshotai/kimi-k2.5"),

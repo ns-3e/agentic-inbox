@@ -2,17 +2,26 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Banner, Button, Input } from "@cloudflare/kumo";
+import { Banner, Button, Input, Select } from "@cloudflare/kumo";
 import { FloppyDiskIcon, PaperPlaneTiltIcon, XIcon } from "@phosphor-icons/react";
 import { useParams } from "react-router";
+import { useActiveMailbox } from "~/hooks/useActiveMailbox";
 import { useComposeForm } from "~/hooks/useComposeForm";
+import { useUIStore } from "~/hooks/useUIStore";
 import RichTextEditor from "./RichTextEditor";
 
 export default function ComposePanel() {
-	const { mailboxId, folder } = useParams<{
-		mailboxId: string;
-		folder: string;
-	}>();
+	const { folder } = useParams<{ folder: string }>();
+	const { mailboxId, mailboxes, setMailboxId } = useActiveMailbox();
+	const composeOptions = useUIStore((s) => s.composeOptions);
+	// In the unified view a brand-new message can be sent from any mailbox.
+	// Replies, forwards and draft edits stay on the mailbox they belong to.
+	const canPickFrom =
+		!!mailboxes &&
+		mailboxes.length > 1 &&
+		!!setMailboxId &&
+		composeOptions.mode === "new" &&
+		!composeOptions.draftEmail;
 
 	const {
 		to,
@@ -64,6 +73,36 @@ export default function ComposePanel() {
 					{error && <Banner variant="error" text={error} />}
 
 					<div className="space-y-3">
+						{canPickFrom && (
+							<div className="flex items-center gap-2">
+								<label className="text-sm font-medium text-kumo-subtle w-14 shrink-0">
+									From
+								</label>
+								<div className="flex-1 min-w-0">
+									<Select
+										aria-label="From mailbox"
+										value={mailboxId ?? ""}
+										onValueChange={(value) => {
+											if (value) setMailboxId?.(value as string);
+										}}
+									>
+										{mailboxes!.map((m) => (
+											<Select.Option key={m} value={m}>
+												{m}
+											</Select.Option>
+										))}
+									</Select>
+								</div>
+							</div>
+						)}
+						{!canPickFrom && mailboxes && mailboxId && (
+							<div className="flex items-center gap-2">
+								<span className="text-sm font-medium text-kumo-subtle w-14 shrink-0">
+									From
+								</span>
+								<span className="text-sm text-kumo-default truncate">{mailboxId}</span>
+							</div>
+						)}
 						<div className="flex items-center gap-2">
 							<label className="text-sm font-medium text-kumo-subtle w-14 shrink-0">
 								To

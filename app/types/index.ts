@@ -48,6 +48,8 @@ export interface Email {
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;
+	// Present only in the unified (all mailboxes) list
+	mailbox_id?: string;
 }
 
 export interface Attachment {
@@ -63,4 +65,10 @@ export interface Folder {
 	id: string;
 	name: string;
 	unreadCount: number;
+}
+
+export interface MailboxSummary {
+	id: string;
+	email: string;
+	folders: Folder[];
 }

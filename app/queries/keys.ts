@@ -23,5 +23,11 @@ export const queryKeys = {
 		results: (mailboxId: string, query: string, page: number) =>
 			["search", mailboxId, query, page] as const,
 	},
+	unified: {
+		all: ["unified"] as const,
+		emails: (params: Record<string, string>) => ["unified", "emails", params] as const,
+		summary: ["unified", "summary"] as const,
+		search: (query: string, page: number) => ["unified", "search", query, page] as const,
+	},
 	config: ["config"] as const,
 };

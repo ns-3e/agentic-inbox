@@ -16,6 +16,10 @@ export default function Header() {
 	const location = useLocation();
 	const [searchParams] = useSearchParams();
 	const { toggleSidebar, toggleAgentPanel, isAgentPanelOpen } = useUIStore();
+	// Without a mailbox in the URL we are in the unified "All inboxes" view.
+	const isUnified = !mailboxId;
+	const searchPath = isUnified ? "/all/search" : `/mailbox/${mailboxId}/search`;
+	const inboxPath = isUnified ? "/all/inbox" : `/mailbox/${mailboxId}/emails/inbox`;
 
 	// Sync search input with URL query param so it stays populated
 	const urlQuery = searchParams.get("q") || "";
@@ -26,17 +30,17 @@ export default function Header() {
 	}, [urlQuery, location.pathname]);
 
 	const performSearch = () => {
-		if (mailboxId && searchQuery.trim()) {
+		if (searchQuery.trim()) {
 			const q = searchQuery.trim();
-			navigate(`/mailbox/${mailboxId}/search?q=${encodeURIComponent(q)}`);
+			navigate(`${searchPath}?q=${encodeURIComponent(q)}`);
 			setIsSearchExpanded(false);
 		}
 	};
 
 	const clearSearch = () => {
 		setSearchQuery("");
-		if (location.pathname.includes("/search") && mailboxId) {
-			navigate(`/mailbox/${mailboxId}/emails/inbox`);
+		if (location.pathname.includes("/search")) {
+			navigate(inboxPath);
 		}
 	};
 
@@ -78,7 +82,11 @@ export default function Header() {
 					<Input
 						className="w-full"
 						aria-label="Search emails"
-						placeholder="Search emails... (try from:name, is:unread, has:attachment)"
+						placeholder={
+							isUnified
+								? "Search all mailboxes... (try from:name, is:unread, has:attachment)"
+								: "Search emails... (try from:name, is:unread, has:attachment)"
+						}
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -129,7 +137,7 @@ export default function Header() {
 						className="hidden lg:inline-flex"
 					/>
 				</Tooltip>
-				<Tooltip content="Settings" side="bottom" asChild>
+				{!isUnified && <Tooltip content="Settings" side="bottom" asChild>
 					<Button
 						variant={isSettingsActive ? "secondary" : "ghost"}
 						shape="square"
@@ -137,13 +145,13 @@ export default function Header() {
 						onClick={() =>
 							navigate(
 								isSettingsActive
-									? `/mailbox/${mailboxId}/emails/inbox`
+									? inboxPath
 									: `/mailbox/${mailboxId}/settings`,
 							)
 						}
 						aria-label="Settings"
 					/>
-				</Tooltip>
+				</Tooltip>}
 			</div>
 		</header>
 	);

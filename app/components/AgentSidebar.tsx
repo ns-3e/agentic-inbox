@@ -7,8 +7,8 @@ import { PlugsIcon, RobotIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import MCPPanel from "./MCPPanel";
 
-function LazyAgentPanel() {
-	const [AgentChat, setAgentChat] = useState<React.ComponentType | null>(
+function LazyAgentPanel({ agentName }: { agentName?: string }) {
+	const [AgentChat, setAgentChat] = useState<React.ComponentType<{ agentName?: string }> | null>(
 		null,
 	);
 	const [loadError, setLoadError] = useState<string | null>(null);
@@ -37,10 +37,14 @@ function LazyAgentPanel() {
 			</div>
 		);
 	}
-	return <AgentChat />;
+	return <AgentChat agentName={agentName} />;
 }
 
-export default function AgentSidebar() {
+/**
+ * @param agentName Agent instance to chat with. Defaults to the mailbox in the
+ *   URL; the unified view passes UNIFIED_AGENT_NAME for the all-mailbox agent.
+ */
+export default function AgentSidebar({ agentName }: { agentName?: string } = {}) {
 	const [activeTab, setActiveTab] = useState<"agent" | "mcp">("agent");
 
 	return (
@@ -76,7 +80,7 @@ export default function AgentSidebar() {
 			{/* Tab content — keep agent mounted so chat isn't lost */}
 			<div className="flex-1 min-h-0 overflow-hidden">
 				<div className={activeTab === "agent" ? "h-full" : "hidden"}>
-					<LazyAgentPanel />
+					<LazyAgentPanel agentName={agentName} />
 				</div>
 				{activeTab === "mcp" && <MCPPanel />}
 			</div>

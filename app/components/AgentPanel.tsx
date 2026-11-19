@@ -20,6 +20,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { UNIFIED_AGENT_NAME } from "shared/agents";
+import { useActiveMailbox } from "~/hooks/useActiveMailbox";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useUIStore } from "~/hooks/useUIStore";
@@ -306,6 +308,8 @@ function AgentChatConnected({
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const [inputValue, setInputValue] = useState("");
 	const { startCompose } = useUIStore();
+	const { focusMailbox } = useActiveMailbox();
+	const isUnified = mailboxId === UNIFIED_AGENT_NAME;
 
 	const agent = useAgent({ agent: "EmailAgent", name: mailboxId });
 	const { messages, sendMessage, status, setMessages, stop } =
@@ -336,11 +340,17 @@ function AgentChatConnected({
 		}
 	};
 
-	const suggestedPrompts = [
-		"Show me the latest inbox emails",
-		"Any unread emails?",
-		"Draft a response to the latest email",
-	];
+	const suggestedPrompts = isUnified
+		? [
+				"Which mailboxes have unread emails?",
+				"Summarize the latest emails across all inboxes",
+				"What needs a reply today, in any mailbox?",
+			]
+		: [
+				"Show me the latest inbox emails",
+				"Any unread emails?",
+				"Draft a response to the latest email",
+			];
 
 	return (
 		<div className="flex flex-col h-full">
@@ -349,7 +359,7 @@ function AgentChatConnected({
 				<div className="flex items-center gap-2">
 					<Badge variant="beta">AI</Badge>
 					<span className="text-xs text-kumo-subtle">
-						Email Agent
+						{isUnified ? "Email Agent · all mailboxes" : "Email Agent"}
 					</span>
 				</div>
 				<div className="flex items-center gap-1">
@@ -385,8 +395,9 @@ function AgentChatConnected({
 							/>
 						</div>
 						<p className="text-xs text-kumo-subtle text-center leading-relaxed px-4">
-							I can read emails, search conversations, and draft
-							replies.
+							{isUnified
+								? "I can read and search every mailbox at once, and draft replies from the right one."
+								: "I can read emails, search conversations, and draft replies."}
 						</p>
 						<div className="flex flex-col gap-1.5 w-full">
 							{suggestedPrompts.map((prompt) => (
@@ -418,6 +429,7 @@ function AgentChatConnected({
 											subject?: string;
 											body?: string;
 											id?: string;
+											mailbox?: string;
 										} | null = null;
 										for (const part of msg.parts) {
 											if (
@@ -429,10 +441,13 @@ function AgentChatConnected({
 											}
 										}
 										if (draftData) {
+											// The unified agent tags drafts with the mailbox they were saved in.
+											const draftMailbox = draftData.mailbox || mailboxId;
+											if (draftData.mailbox) focusMailbox?.(draftData.mailbox);
 											const draftEmail = {
 												id: draftData.id || "",
 												subject: draftData.subject || "",
-												sender: mailboxId,
+												sender: draftMailbox,
 												recipient: draftData.to || "",
 												date: new Date().toISOString(),
 												read: true,
@@ -521,8 +536,9 @@ function AgentChatConnected({
 	);
 }
 
-export default function AgentPanel() {
-	const { mailboxId } = useParams<{ mailboxId: string }>();
+export default function AgentPanel({ agentName }: { agentName?: string }) {
+	const { mailboxId: routeMailboxId } = useParams<{ mailboxId: string }>();
+	const mailboxId = agentName ?? routeMailboxId;
 	const [hooks, setHooks] = useState<{
 		useAgent: typeof import("agents/react").useAgent;
 		useAgentChat: typeof import("@cloudflare/ai-chat/react").useAgentChat;
@@ -566,6 +582,7 @@ export default function AgentPanel() {
 
 	return (
 		<AgentChatConnected
+			key={mailboxId ?? "default"}
 			mailboxId={mailboxId ?? "default"}
 			useAgent={hooks.useAgent}
 			useAgentChat={hooks.useAgentChat}

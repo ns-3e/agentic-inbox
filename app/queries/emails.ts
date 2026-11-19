@@ -14,6 +14,11 @@ interface EmailListResponse {
 	totalCount: number;
 }
 
+interface UnifiedEmailListResponse extends EmailListResponse {
+	mailboxes: string[];
+	failed: string[];
+}
+
 // ---------- Queries ----------
 
 export function useEmails(
@@ -91,6 +96,26 @@ export function useThreadReplies(
 	});
 }
 
+export function useUnifiedEmails(
+	params: Record<string, string>,
+	options?: { refetchInterval?: number },
+) {
+	return useQuery<UnifiedEmailListResponse>({
+		queryKey: queryKeys.unified.emails(params),
+		queryFn: ({ signal }) => api.listUnifiedEmails(params, { signal }),
+		refetchInterval: options?.refetchInterval,
+		placeholderData: (prev) => prev,
+	});
+}
+
+export function useUnifiedSummary(options?: { refetchInterval?: number }) {
+	return useQuery({
+		queryKey: queryKeys.unified.summary,
+		queryFn: () => api.getUnifiedSummary(),
+		refetchInterval: options?.refetchInterval,
+	});
+}
+
 // ---------- Mutations ----------
 
 /** Invalidate both the email list and folder counts after any email mutation. */
@@ -101,6 +126,7 @@ function useInvalidateEmailData() {
 		qc.invalidateQueries({
 			queryKey: queryKeys.folders.list(mailboxId),
 		});
+		qc.invalidateQueries({ queryKey: queryKeys.unified.all });
 	};
 }
 
@@ -157,6 +183,21 @@ export function useUpdateEmail() {
 				});
 			}
 
+			// Patch unified (all-mailbox) lists too
+			await qc.cancelQueries({ queryKey: ["unified", "emails"] });
+			const unifiedQueries = qc.getQueriesData<{ emails: Email[]; totalCount: number }>({
+				queryKey: ["unified", "emails"],
+			});
+			for (const [key, cached] of unifiedQueries) {
+				if (!cached?.emails) continue;
+				qc.setQueryData(key, {
+					...cached,
+					emails: cached.emails.map((e) =>
+						e.id === id && e.mailbox_id === mailboxId ? { ...e, ...(data as Partial<Email>) } : e,
+					),
+				});
+			}
+
 			// Also patch the detail cache
 			const detailKey = queryKeys.emails.detail(mailboxId, id);
 			const prevDetail = qc.getQueryData<Email>(detailKey);
@@ -164,12 +205,17 @@ export function useUpdateEmail() {
 				qc.setQueryData(detailKey, { ...prevDetail, ...(data as Partial<Email>) });
 			}
 
-			return { listQueries, prevDetail, detailKey };
+			return { listQueries, unifiedQueries, prevDetail, detailKey };
 		},
 		onError: (_err, _vars, context) => {
 			// Roll back optimistic updates on failure
 			if (context?.listQueries) {
 				for (const [key, cached] of context.listQueries) {
+					qc.setQueryData(key, cached);
+				}
+			}
+			if (context?.unifiedQueries) {
+				for (const [key, cached] of context.unifiedQueries) {
 					qc.setQueryData(key, cached);
 				}
 			}
@@ -183,6 +229,7 @@ export function useUpdateEmail() {
 			qc.invalidateQueries({
 				queryKey: queryKeys.folders.list(mailboxId),
 			});
+			qc.invalidateQueries({ queryKey: queryKeys.unified.all });
 		},
 	});
 }
@@ -200,6 +247,7 @@ export function useMarkThreadRead() {
 			qc.invalidateQueries({
 				queryKey: queryKeys.folders.list(mailboxId),
 			});
+			qc.invalidateQueries({ queryKey: queryKeys.unified.all });
 		},
 	});
 }

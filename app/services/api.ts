@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Email, Folder, Mailbox } from "~/types";
+import type { Email, Folder, Mailbox, MailboxSummary } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -156,6 +156,13 @@ const api = {
 		put<Folder>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`, { name }),
 	deleteFolder: (mailboxId: string, id: string) =>
 		del<void>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`),
+
+	// Unified (all mailboxes)
+	listUnifiedEmails: (params: Record<string, string>, opts?: { signal?: AbortSignal }) =>
+		get<EmailListResponse & { mailboxes: string[]; failed: string[] }>("/api/v1/unified/emails", { params, signal: opts?.signal }),
+	getUnifiedSummary: () => get<MailboxSummary[]>("/api/v1/unified/summary"),
+	searchUnified: (params: Record<string, string>, opts?: { signal?: AbortSignal }) =>
+		get<EmailListResponse & { mailboxes: string[]; failed: string[] }>("/api/v1/unified/search", { params, signal: opts?.signal }),
 
 	// Search
 	searchEmails: (mailboxId: string, params: Record<string, string>) =>

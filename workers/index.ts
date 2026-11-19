@@ -140,6 +140,132 @@ app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 	return c.body(null, 204);
 });
 
+// -- Unified (all mailboxes) ----------------------------------------
+
+const UNIFIED_CHUNK = 100; // getThreadedEmails caps limit at 100
+
+/**
+ * One merged, threaded list across every mailbox. Each mailbox is its own
+ * Durable Object, so we fetch the top `page * limit` conversations from each,
+ * merge by date, and slice the requested page. Every email is tagged with
+ * `mailbox_id` so the client knows which mailbox to act on.
+ */
+app.get("/api/v1/unified/emails", async (c) => {
+	const folder = c.req.query("folder") || Folders.INBOX;
+	const page = Math.max(1, Number(c.req.query("page")) || 1);
+	const limit = Math.min(Math.max(1, Number(c.req.query("limit")) || 25), 100);
+	const need = page * limit;
+	const mailboxes = await listMailboxes(c.env.BUCKET);
+
+	const perMailbox = await Promise.allSettled(
+		mailboxes.map(async ({ id }) => {
+			const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(id)) as any;
+			const emails: any[] = [];
+			for (let p = 1; emails.length < need; p++) {
+				const chunk = await stub.getThreadedEmails({ folder, page: p, limit: UNIFIED_CHUNK });
+				emails.push(...chunk);
+				if (chunk.length < UNIFIED_CHUNK) break;
+			}
+			const count: number = await stub.countThreadedEmails(folder);
+			return { emails: emails.slice(0, need).map((e) => ({ ...e, mailbox_id: id })), count };
+		}),
+	);
+
+	let totalCount = 0;
+	const merged: any[] = [];
+	const failed: string[] = [];
+	perMailbox.forEach((r, i) => {
+		if (r.status === "fulfilled") {
+			totalCount += r.value.count;
+			merged.push(...r.value.emails);
+		} else {
+			failed.push(mailboxes[i].id);
+			console.error(`Unified list failed for ${mailboxes[i].id}:`, (r.reason as Error)?.message);
+		}
+	});
+	merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+	return c.json({
+		emails: merged.slice((page - 1) * limit, need),
+		totalCount,
+		mailboxes: mailboxes.map((m) => m.id),
+		failed,
+	});
+});
+
+/**
+ * Search every mailbox at once. Accepts the same filters as the per-mailbox
+ * search endpoint, merges results newest-first, and tags each with `mailbox_id`.
+ */
+app.get("/api/v1/unified/search", async (c) => {
+	const page = Math.max(1, Number(c.req.query("page")) || 1);
+	const limit = Math.min(Math.max(1, Number(c.req.query("limit")) || 25), 100);
+	const need = page * limit;
+	const bool = (key: string) => {
+		const v = c.req.query(key);
+		return v === undefined || v === "" ? undefined : v === "true" || v === "1";
+	};
+	const searchOpts: Record<string, unknown> = {
+		query: c.req.query("query") || "", folder: c.req.query("folder"), from: c.req.query("from"),
+		to: c.req.query("to"), subject: c.req.query("subject"), date_start: c.req.query("date_start"),
+		date_end: c.req.query("date_end"), is_read: bool("is_read"),
+		is_starred: bool("is_starred"), has_attachment: bool("has_attachment"),
+	};
+	const mailboxes = await listMailboxes(c.env.BUCKET);
+
+	const perMailbox = await Promise.allSettled(
+		mailboxes.map(async ({ id }) => {
+			const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(id)) as any;
+			const emails: any[] = [];
+			for (let p = 1; emails.length < need; p++) {
+				const chunk = await stub.searchEmails({ ...searchOpts, page: p, limit: UNIFIED_CHUNK });
+				emails.push(...chunk);
+				if (chunk.length < UNIFIED_CHUNK) break;
+			}
+			const count: number = await stub.countSearchResults(searchOpts);
+			return { emails: emails.slice(0, need).map((e) => ({ ...e, mailbox_id: id })), count };
+		}),
+	);
+
+	let totalCount = 0;
+	const merged: any[] = [];
+	const failed: string[] = [];
+	perMailbox.forEach((r, i) => {
+		if (r.status === "fulfilled") {
+			totalCount += r.value.count;
+			merged.push(...r.value.emails);
+		} else {
+			failed.push(mailboxes[i].id);
+			console.error(`Unified search failed for ${mailboxes[i].id}:`, (r.reason as Error)?.message);
+		}
+	});
+	merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+	return c.json({
+		emails: merged.slice((page - 1) * limit, need),
+		totalCount,
+		mailboxes: mailboxes.map((m) => m.id),
+		failed,
+	});
+});
+
+/** Per-mailbox folder unread counts, for the unified sidebar. */
+app.get("/api/v1/unified/summary", async (c) => {
+	const mailboxes = await listMailboxes(c.env.BUCKET);
+	const results = await Promise.allSettled(
+		mailboxes.map(async ({ id }) => {
+			const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(id));
+			const folders = await stub.getFolders();
+			return { id, email: id, folders };
+		}),
+	);
+	return c.json(
+		results.map((r, i) =>
+			r.status === "fulfilled" ? r.value : { id: mailboxes[i].id, email: mailboxes[i].id, folders: [] },
+		),
+	);
+});
+
 // -- Emails ---------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
