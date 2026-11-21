@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import type { Context } from "hono";
-import { sendEmail } from "../email-sender";
+import { trySendEmail } from "../email-sender";
 import { storeAttachments } from "../lib/attachments";
 import type { EmailFull } from "../lib/schemas";
 import {
@@ -53,6 +53,25 @@ export async function handleReplyEmail(c: AppContext) {
 		return c.json({ error: rateLimitError }, 429);
 	}
 
+	const delivery = await trySendEmail(c.env.EMAIL, {
+		to,
+		cc,
+		bcc,
+		from,
+		subject,
+		html,
+		text,
+		attachments: attachments?.map((att) => ({
+			content: att.content,
+			filename: att.filename,
+			type: att.type,
+			disposition: att.disposition,
+			contentId: att.contentId,
+		})),
+		headers: buildThreadingHeaders(originalMsgId, references),
+	});
+	if (delivery.error !== undefined) return c.json({ error: delivery.error }, 502);
+
 	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
 
 	await stub.createEmail(
@@ -69,7 +88,7 @@ export async function handleReplyEmail(c: AppContext) {
 			in_reply_to: originalMsgId,
 			email_references: JSON.stringify(references),
 			thread_id: thread_id,
-			message_id: outgoingMessageId,
+			message_id: outgoingMessageId, delivery_id: delivery.deliveryId,
 			raw_headers: JSON.stringify([
 				{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
 				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
@@ -87,29 +106,7 @@ export async function handleReplyEmail(c: AppContext) {
 
 	await stub.markThreadRead(thread_id);
 
-	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
-			to,
-			cc,
-			bcc,
-			from,
-			subject,
-			html,
-			text,
-			attachments: attachments?.map((att) => ({
-				content: att.content,
-				filename: att.filename,
-				type: att.type,
-				disposition: att.disposition,
-				contentId: att.contentId,
-			})),
-			headers: buildThreadingHeaders(originalMsgId, references),
-		}).catch((e) => {
-			console.error("Deferred reply delivery failed:", (e as Error).message);
-		}),
-	);
-
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 201);
 }
 
 export async function handleForwardEmail(c: AppContext) {
@@ -143,6 +140,24 @@ export async function handleForwardEmail(c: AppContext) {
 		return c.json({ error: rateLimitError }, 429);
 	}
 
+	const delivery = await trySendEmail(c.env.EMAIL, {
+		to,
+		cc,
+		bcc,
+		from,
+		subject,
+		html,
+		text,
+		attachments: attachments?.map((att) => ({
+			content: att.content,
+			filename: att.filename,
+			type: att.type,
+			disposition: att.disposition,
+			contentId: att.contentId,
+		})),
+	});
+	if (delivery.error !== undefined) return c.json({ error: delivery.error }, 502);
+
 	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
 
 	await stub.createEmail(
@@ -159,7 +174,7 @@ export async function handleForwardEmail(c: AppContext) {
 			in_reply_to: null,
 			email_references: null,
 			thread_id: messageId,
-			message_id: outgoingMessageId,
+			message_id: outgoingMessageId, delivery_id: delivery.deliveryId,
 			raw_headers: JSON.stringify([
 				{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
 				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
@@ -173,26 +188,6 @@ export async function handleForwardEmail(c: AppContext) {
 		attachmentData,
 	);
 
-	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
-			to,
-			cc,
-			bcc,
-			from,
-			subject,
-			html,
-			text,
-			attachments: attachments?.map((att) => ({
-				content: att.content,
-				filename: att.filename,
-				type: att.type,
-				disposition: att.disposition,
-				contentId: att.contentId,
-			})),
-		}).catch((e) => {
-			console.error("Deferred forward delivery failed:", (e as Error).message);
-		}),
-	);
 
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 201);
 }

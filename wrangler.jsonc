@@ -29,6 +29,18 @@
 			"preview_bucket_name": "agentic-inbox"
 		}
 	],
+	// Email Sending delivery events (bounces etc.). Create the queue and subscribe
+	// each sending domain to it: see README "Delivery tracking".
+	"queues": {
+		"consumers": [
+			{
+				"queue": "agentic-inbox-email-events",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5,
+				"max_retries": 5
+			}
+		]
+	},
 	"ai": {
 		"binding": "AI"
 	},

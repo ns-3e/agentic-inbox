@@ -433,14 +433,15 @@ export async function toolSendReply(
 	});
 	const fullBodyHtml = sanitizedBody + quotedBlock;
 
+	let deliveryId: string | null = null;
 	try {
-		await sendEmail(env.EMAIL, {
+		({ messageId: deliveryId } = await sendEmail(env.EMAIL, {
 			to: params.to,
 			from: mailboxId,
 			subject: params.subject,
 			html: fullBodyHtml,
 			headers: buildThreadingHeaders(originalMsgId, references),
-		});
+		}));
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
 		return { error: `Failed to send reply: ${(e as Error).message}` };
@@ -460,6 +461,7 @@ export async function toolSendReply(
 				references.length > 0 ? JSON.stringify(references) : null,
 			thread_id: threadId,
 			message_id: outgoingMessageId,
+			delivery_id: deliveryId,
 		},
 		[],
 	);
@@ -498,13 +500,14 @@ export async function toolSendEmail(
 		return { error: "Draft verification failed — refusing to send unverified content. Please try again." };
 	}
 
+	let deliveryId: string | null = null;
 	try {
-		await sendEmail(env.EMAIL, {
+		({ messageId: deliveryId } = await sendEmail(env.EMAIL, {
 			to: params.to,
 			from: mailboxId,
 			subject: params.subject,
 			html: sanitizedBody,
-		});
+		}));
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
 		return { error: `Failed to send email: ${(e as Error).message}` };
@@ -523,6 +526,7 @@ export async function toolSendEmail(
 			email_references: null,
 			thread_id: messageId,
 			message_id: outgoingMessageId,
+			delivery_id: deliveryId,
 		},
 		[],
 	);

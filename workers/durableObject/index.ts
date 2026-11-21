@@ -10,6 +10,17 @@ import * as schema from "../db/schema";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { applyMigrations, mailboxMigrations } from "./migrations";
+import {
+	type EmailSendingEvent,
+	FAILURE_STATUSES,
+	shouldReplaceStatus,
+	statusFromEventType,
+} from "../lib/delivery-events";
+import { suggestEmailFix } from "../../shared/email-typos";
+
+function escapeHtmlText(s: string): string {
+	return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -87,6 +98,7 @@ interface EmailData {
 	thread_id?: string | null;
 	message_id?: string | null;
 	raw_headers?: string | null;
+	delivery_id?: string | null;
 }
 
 interface AttachmentData {
@@ -790,6 +802,89 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Limits: 20 emails per hour, 100 per day per mailbox.
 	 * Returns null if under limit, or an error message string if exceeded.
 	 */
+	/**
+	 * Apply an Email Sending lifecycle event to the matching Sent email.
+	 * On a bounce / failure / rejection, also put a "Delivery failed" notice
+	 * in the Inbox, in the same thread as the original message.
+	 */
+	async recordDeliveryEvent(event: EmailSendingEvent): Promise<{ matched: boolean; notified: boolean }> {
+		const status = statusFromEventType(event.type);
+		if (!status) return { matched: false, notified: false };
+		const p = event.payload ?? {};
+		const recipient = (p.recipient || "").toLowerCase();
+
+		// 1. Match by the delivery ID that the send binding returned.
+		let sent = p.messageId
+			? this.db.select().from(schema.emails)
+				.where(and(eq(schema.emails.folder_id, Folders.SENT), eq(schema.emails.delivery_id, p.messageId)))
+				.get()
+			: undefined;
+
+		// 2. Fall back to the newest Sent email to this recipient with this subject (last 7 days).
+		if (!sent && recipient) {
+			const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+			const conditions = [
+				eq(schema.emails.folder_id, Folders.SENT),
+				sql`${schema.emails.date} >= ${since}`,
+				sql`(',' || REPLACE(LOWER(COALESCE(${schema.emails.recipient}, '') || ',' || COALESCE(${schema.emails.cc}, '') || ',' || COALESCE(${schema.emails.bcc}, '')), ' ', '') || ',') LIKE ${"%," + recipient + ",%"}`,
+			];
+			if (p.subject) conditions.push(eq(schema.emails.subject, p.subject));
+			sent = this.db.select().from(schema.emails).where(and(...conditions)).orderBy(desc(schema.emails.date)).limit(1).get();
+		}
+
+		const detail = p.delivery?.smtpResponse || p.bounce?.reason || null;
+		if (sent && shouldReplaceStatus(sent.delivery_status, status)) {
+			this.db.update(schema.emails)
+				.set({
+					delivery_status: status,
+					delivery_detail: detail,
+					...(sent.delivery_id ? {} : { delivery_id: p.messageId ?? null }),
+				})
+				.where(eq(schema.emails.id, sent.id))
+				.run();
+		}
+
+		if (!FAILURE_STATUSES.has(status)) return { matched: !!sent, notified: false };
+
+		// One notice per event (queues deliver at least once).
+		const noticeId = `dsn-${p.eventId || `${p.messageId}-${recipient}-${status}`}`;
+		if (this.db.select({ id: schema.emails.id }).from(schema.emails).where(eq(schema.emails.id, noticeId)).get()) {
+			return { matched: !!sent, notified: false };
+		}
+
+		const mailbox = (p.sender || sent?.sender || "").toLowerCase();
+		const domain = mailbox.split("@")[1] || event.source?.domain || "localhost";
+		const subject = sent?.subject ?? p.subject ?? "";
+		const fix = recipient ? suggestEmailFix(recipient) : null;
+		const why =
+			status === "rejected"
+				? "Cloudflare did not send it, because this address is on your suppression list after an earlier bounce or complaint."
+				: status === "failed"
+					? "It could not be sent because of a sending error."
+					: p.bounce?.type === "soft"
+						? "The recipient's server kept refusing it temporarily, and the retries ran out."
+						: "The recipient's server rejected it permanently.";
+		const body = `<div style="font-family:system-ui,sans-serif;line-height:1.5">
+<h2 style="margin:0 0 8px;font-size:18px">Your message wasn't delivered</h2>
+<p>Your message to <strong>${escapeHtmlText(recipient || "the recipient")}</strong> was not delivered. ${why}</p>
+${fix ? `<p style="padding:8px 12px;border-left:3px solid #f59e0b;background:#fef3c7;color:#78350f">Check the address. Did you mean <strong>${escapeHtmlText(fix)}</strong>?</p>` : ""}
+${detail ? `<p style="margin-bottom:4px"><strong>The response from the remote server was:</strong></p><pre style="white-space:pre-wrap;background:#f4f4f5;color:#18181b;padding:8px 12px;border-radius:6px">${escapeHtmlText(detail)}</pre>` : ""}
+<p style="color:#71717a;font-size:12px">Subject: ${escapeHtmlText(subject || "(no subject)")}${p.delivery?.smtpEnhancedStatusCode ? ` · Status ${escapeHtmlText(p.delivery.smtpEnhancedStatusCode)}` : ""}${p.bounce?.type ? ` · ${escapeHtmlText(p.bounce.type)} bounce` : ""}</p>
+</div>`;
+
+		await this.createEmail(Folders.INBOX, {
+			id: noticeId,
+			subject: `Delivery Status Notification (Failure)${subject ? `: ${subject}` : ""}`,
+			sender: `mailer-daemon@${domain}`,
+			recipient: mailbox,
+			date: event.metadata?.eventTimestamp || new Date().toISOString(),
+			body,
+			in_reply_to: sent?.message_id ?? null,
+			thread_id: sent?.thread_id ?? sent?.id ?? noticeId,
+		}, []);
+		return { matched: !!sent, notified: true };
+	}
+
 	async checkSendRateLimit(): Promise<string | null> {
 		const hourRow = [...this.ctx.storage.sql.exec(
 			`SELECT COUNT(*) as cnt FROM emails
@@ -861,6 +956,8 @@ export class MailboxDO extends DurableObject<Env> {
 				email_references: email.email_references ?? null,
 				thread_id: email.thread_id ?? null,
 				message_id: email.message_id ?? null,
+				delivery_id: email.delivery_id ?? null,
+				delivery_status: email.delivery_id ? "sent" : null,
 				raw_headers: email.raw_headers ?? null,
 			})
 			.run();

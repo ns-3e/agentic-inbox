@@ -17,6 +17,7 @@ import {
 import { useDeleteEmail, useForwardEmail, useReplyToEmail, useSaveDraft, useSendEmail } from "~/queries/emails";
 import { useMailbox } from "~/queries/mailboxes";
 import { useUIStore } from "~/hooks/useUIStore";
+import { suggestEmailFix } from "shared/email-typos";
 
 function appendUniqueAddress(
 	addresses: string[],
@@ -182,6 +183,8 @@ export function useComposeForm(mailboxId?: string, _folder?: string) {
 	const [isSavingDraft, setIsSavingDraft] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 	const lastInitializedOptionsRef = useRef<typeof composeOptions | null>(null);
+	// Recipient list the user already confirmed despite a typo warning.
+	const confirmedTypoRecipientsRef = useRef<string | null>(null);
 	const isDraftEdit = !!composeOptions.draftEmail;
 
 	const formTitle = useMemo(() => {
@@ -238,6 +241,17 @@ export function useComposeForm(mailboxId?: string, _folder?: string) {
 		const toRecipients = splitEmailList(to);
 		if (toRecipients.length === 0) { setError("Add at least one recipient."); return; }
 		const ccRecipients = splitEmailList(cc); const bccRecipients = splitEmailList(bcc);
+		const allRecipients = [...toRecipients, ...ccRecipients, ...bccRecipients];
+		const typoFixes = allRecipients
+			.map((addr) => ({ addr, fix: suggestEmailFix(addr) }))
+			.filter((t): t is { addr: string; fix: string } => t.fix !== null);
+		const recipientsKey = allRecipients.map((a) => a.toLowerCase()).join(",");
+		if (typoFixes.length > 0 && confirmedTypoRecipientsRef.current !== recipientsKey) {
+			confirmedTypoRecipientsRef.current = recipientsKey;
+			const list = typoFixes.map((t) => `${t.addr} → did you mean ${t.fix}?`).join(" ");
+			setError(`Check the address: ${list} Correct it, or press Send again to send anyway.`);
+			return;
+		}
 		const fromName = currentMailbox.settings?.fromName || currentMailbox.name;
 		const from = fromName && fromName !== currentMailbox.email ? { email: currentMailbox.email, name: fromName } : currentMailbox.email;
 		const emailData = {

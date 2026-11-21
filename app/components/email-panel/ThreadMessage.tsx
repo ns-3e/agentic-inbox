@@ -21,6 +21,28 @@ import {
 } from "~/lib/utils";
 import type { Email } from "~/types";
 
+const DELIVERY_LABELS: Record<string, { label: string; variant: "success" | "destructive" | "secondary" | "outline"; hint: string }> = {
+	sent: { label: "Sending", variant: "outline", hint: "Accepted by Cloudflare, waiting for the recipient's server." },
+	delivered: { label: "Delivered", variant: "success", hint: "The recipient's mail server accepted the message." },
+	deferred: { label: "Delayed", variant: "secondary", hint: "Temporary failure. Cloudflare will retry." },
+	bounced: { label: "Bounced", variant: "destructive", hint: "The recipient's server rejected the message." },
+	failed: { label: "Failed", variant: "destructive", hint: "The message could not be sent." },
+	rejected: { label: "Not sent", variant: "destructive", hint: "The recipient is on the suppression list." },
+	complained: { label: "Marked as spam", variant: "destructive", hint: "The recipient reported this message as spam." },
+};
+
+function DeliveryBadge({ status, detail }: { status?: string | null; detail?: string | null }) {
+	const info = status ? DELIVERY_LABELS[status] : undefined;
+	if (!info) return null;
+	return (
+		<Tooltip content={detail ? `${info.hint} ${detail}` : info.hint} side="bottom" asChild>
+			<span className="inline-flex">
+				<Badge variant={info.variant}>{info.label}</Badge>
+			</span>
+		</Tooltip>
+	);
+}
+
 interface ThreadMessageProps {
 	email: Email;
 	mailboxId?: string;
@@ -121,6 +143,7 @@ export default function ThreadMessage({
 									{senderLabel}
 								</span>
 								{isDraft && <Badge variant="outline">Draft</Badge>}
+								{isSelf && !isDraft && <DeliveryBadge status={email.delivery_status} detail={email.delivery_detail} />}
 							</div>
 							<div className="text-xs text-kumo-subtle">To: {email.recipient}</div>
 						</div>

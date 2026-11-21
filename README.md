@@ -28,6 +28,18 @@ https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513
 4. **Enable Email Service** -- The worker needs the `send_email` binding to send outbound emails. See [Email Service docs](https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/)
 5. **Create a mailbox** -- Visit your deployed app and create a mailbox for any address on your domain (e.g. `hello@example.com`)
 
+### Delivery tracking (optional)
+
+The app can show whether each sent email was delivered, and put a "Delivery Status Notification (Failure)" message in the Inbox when an email bounces. It uses [Email Sending event subscriptions](https://developers.cloudflare.com/email-service/reference/event-subscriptions/) on a Cloudflare Queue.
+
+1. Create the queue and subscribe each sending domain. Run this before you deploy:
+   ```bash
+   scripts/setup-delivery-events.sh example.com=<zone_id> other.com=<zone_id>
+   ```
+2. Deploy with `npm run deploy`. The Worker consumes the `agentic-inbox-email-events` queue.
+
+If you do not want this feature, remove the `queues` block from `wrangler.jsonc`.
+
 ### Troubleshooting Access
 
 1. If you see `Invalid or expired Access token`, that usually means `POLICY_AUD` or `TEAM_DOMAIN` secrets are incorrect.

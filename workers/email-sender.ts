@@ -70,3 +70,28 @@ export async function sendEmail(
 	const result = await binding.send(message as any);
 	return { messageId: result.messageId };
 }
+
+/**
+ * Send an email and report a failure as a message instead of an exception.
+ *
+ * Routes call this BEFORE they save the message to the Sent folder, so a
+ * rejected send (invalid or suppressed recipient, unverified sender domain,
+ * quota) is shown to the user instead of being logged and hidden.
+ *
+ * Note: a bounce that the recipient's server returns later (for example a
+ * misspelled domain) cannot be caught here — Cloudflare adds that address to
+ * the suppression list for later sends.
+ */
+export async function trySendEmail(
+	binding: SendEmail,
+	params: SendEmailParams,
+): Promise<{ deliveryId: string; error?: undefined } | { error: string }> {
+	try {
+		const { messageId } = await sendEmail(binding, params);
+		return { deliveryId: messageId };
+	} catch (e) {
+		const err = e as Error & { code?: string };
+		console.error("Email delivery failed:", err.code ?? "", err.message);
+		return { error: `Email was not sent: ${err.message}` };
+	}
+}

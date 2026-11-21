@@ -168,4 +168,14 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
         `,
 	},
+	{
+		// Delivery tracking for sent mail, fed by Email Sending event subscriptions (Queues).
+		name: "9_add_delivery_tracking",
+		sql: txn(`
+            ALTER TABLE emails ADD COLUMN delivery_id TEXT;
+            ALTER TABLE emails ADD COLUMN delivery_status TEXT;
+            ALTER TABLE emails ADD COLUMN delivery_detail TEXT;
+            CREATE INDEX idx_emails_delivery_id ON emails(delivery_id);
+        `),
+	},
 ];

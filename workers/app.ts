@@ -9,6 +9,8 @@ import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
+import type { EmailSendingEvent } from "./lib/delivery-events";
+import { getMailboxStub } from "./lib/email-helpers";
 
 export { MailboxDO } from "./durableObject";
 export { EmailAgent } from "./agent";
@@ -122,6 +124,35 @@ export default {
 			// Re-throw so Cloudflare's email routing can retry delivery or bounce the message.
 			// Swallowing the error would silently drop the email.
 			throw e;
+		}
+	},
+	/**
+	 * Email Sending lifecycle events (delivered / deferred / bounced / failed /
+	 * rejected / complained) from a Queues event subscription on each sending
+	 * domain. Each event updates the Sent email's delivery status; failures
+	 * also put a "Delivery failed" notice in the sender's Inbox.
+	 */
+	async queue(batch: MessageBatch<EmailSendingEvent>, env: Env) {
+		for (const msg of batch.messages) {
+			const event = msg.body;
+			try {
+				const mailboxId = event?.payload?.sender?.toLowerCase();
+				if (!event?.type?.startsWith("cf.email.sending.") || !mailboxId) {
+					msg.ack();
+					continue;
+				}
+				if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
+					console.log(`Ignoring delivery event for ${mailboxId}: mailbox does not exist`);
+					msg.ack();
+					continue;
+				}
+				const result = await getMailboxStub(env, mailboxId).recordDeliveryEvent(event);
+				console.log(`Delivery event ${event.type} for ${mailboxId}`, result);
+				msg.ack();
+			} catch (e) {
+				console.error("Failed to process delivery event:", (e as Error).message);
+				msg.retry({ delaySeconds: 30 });
+			}
 		}
 	},
 };
