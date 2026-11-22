@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Burner, Contact, Email, Folder, Mailbox, MailboxSummary } from "~/types";
+import type { Burner, CatchAllStatus, Contact, Email, Folder, Mailbox, MailboxSummary } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -171,6 +171,11 @@ const api = {
 		put<Folder>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`, { name }),
 	deleteFolder: (mailboxId: string, id: string) =>
 		del<void>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`),
+
+	// Catch-all (mail to unknown addresses on a domain)
+	listCatchAll: () => get<CatchAllStatus[]>("/api/v1/catchall"),
+	setCatchAll: (domain: string, mailboxId: string | null) =>
+		put<CatchAllStatus>(`/api/v1/catchall/${encodeURIComponent(domain)}`, { mailboxId }),
 
 	// Burner addresses
 	listBurners: (mailboxId: string) =>

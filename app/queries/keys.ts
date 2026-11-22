@@ -33,4 +33,5 @@ export const queryKeys = {
 		search: (query: string, page: number) => ["unified", "search", query, page] as const,
 	},
 	config: ["config"] as const,
+	catchAll: ["catchall"] as const,
 };

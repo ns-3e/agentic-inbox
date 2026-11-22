@@ -2,13 +2,14 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { ArchiveIcon, FileIcon, PaperPlaneTiltIcon, PencilSimpleIcon, StarIcon, TrashIcon, TrayIcon } from "@phosphor-icons/react";
+import { ArchiveIcon, FileIcon, FunnelSimpleIcon, PaperPlaneTiltIcon, PencilSimpleIcon, StarIcon, TrashIcon, TrayIcon } from "@phosphor-icons/react";
 import { Link, useLocation } from "react-router";
 import { Folders } from "shared/folders";
 import { useUIStore } from "~/hooks/useUIStore";
 
 export const NAV_FOLDERS = [
 	{ id: Folders.INBOX, label: "Inbox", icon: TrayIcon },
+	{ id: Folders.OTHER, label: "Other addresses", icon: FunnelSimpleIcon },
 	{ id: "starred", label: "Starred", icon: StarIcon },
 	{ id: Folders.SENT, label: "Sent", icon: PaperPlaneTiltIcon },
 	{ id: Folders.DRAFT, label: "Drafts", icon: FileIcon },

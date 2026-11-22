@@ -82,6 +82,14 @@ export interface Burner {
 	lastReceivedAt: string | null;
 }
 
+export interface CatchAllStatus {
+	domain: string;
+	/** The mailbox that collects unknown-address mail; null = rejected. */
+	mailboxId: string | null;
+	configured: boolean;
+	mailboxes: string[];
+}
+
 export interface MailboxSummary {
 	id: string;
 	email: string;

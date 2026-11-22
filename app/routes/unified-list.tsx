@@ -10,7 +10,7 @@ import { FolderEmpty } from "~/components/EmptyStates";
 import MailboxSplitView from "~/components/MailboxSplitView";
 import { useUIStore } from "~/hooks/useUIStore";
 
-const KNOWN_FOLDERS = new Set<string>([Folders.INBOX, Folders.SENT, Folders.DRAFT, Folders.ARCHIVE, Folders.TRASH]);
+const KNOWN_FOLDERS = new Set<string>([Folders.INBOX, Folders.OTHER, Folders.SENT, Folders.DRAFT, Folders.ARCHIVE, Folders.TRASH]);
 
 export default function UnifiedListRoute() {
 	const { folder: folderParam } = useParams<{ folder: string }>();

@@ -178,4 +178,10 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX idx_emails_delivery_id ON emails(delivery_id);
         `),
 	},
+	{
+		// "Other addresses": mail to burners and catch-all addresses, kept out of the Inbox.
+		// OR IGNORE keeps a user folder that already has the id "other".
+		name: "10_add_other_folder",
+		sql: txn(`INSERT OR IGNORE INTO folders (id, name, is_deletable) VALUES ('other', 'Other addresses', 0);`),
+	},
 ];

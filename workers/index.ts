@@ -29,6 +29,7 @@ import {
 	putBurner,
 	recordBurnerHit,
 } from "./lib/burners";
+import { listCatchAllStatus, setCatchAll, getCatchAllStatus } from "./lib/catchall";
 
 type AppContext = Context<MailboxContext>;
 
@@ -462,6 +463,19 @@ app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => 
 	return ok ? c.body(null, 204) : c.json({ error: "Folder not found or cannot be deleted" }, 400);
 });
 
+// -- Catch-all ------------------------------------------------------
+
+app.get("/api/v1/catchall", async (c) => c.json(await listCatchAllStatus(c.env.BUCKET)));
+
+app.put("/api/v1/catchall/:domain", async (c) => {
+	const { mailboxId } = z.object({ mailboxId: z.string().email().nullable() }).parse(await c.req.json());
+	try {
+		return c.json(await setCatchAll(c.env.BUCKET, c.req.param("domain")!, mailboxId));
+	} catch (e) {
+		return c.json({ error: (e as Error).message }, 400);
+	}
+});
+
 // -- Burner addresses -----------------------------------------------
 
 const CreateBurnerBody = z.object({
@@ -592,17 +606,47 @@ async function receiveEmail(event: InboundEmail, env: Env, ctx: ExecutionContext
 	const ccRecipients = (parsedEmail.cc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 
+	// Route by the SMTP envelope recipient: it is the address Email Routing
+	// delivered to (headers can be forged, and Bcc is not in them). Only mail
+	// to the mailbox's own address goes to the Inbox; burners and unknown
+	// (catch-all) addresses go to "Other addresses".
+	const mailboxExists = async (id: string) => !!(await env.BUCKET.head(`mailboxes/${id}.json`));
 	let mailboxId: string | undefined;
+	let folder: string = Folders.INBOX;
 	if (burner) {
 		mailboxId = burner.mailboxId;
+		folder = Folders.OTHER;
 	} else if (allowedAddresses.length > 0) {
-		mailboxId = allRecipients.find((addr) => allowedAddresses.includes(addr));
+		const candidates = envelopeTo ? [envelopeTo, ...allRecipients] : allRecipients;
+		mailboxId = candidates.find((addr) => allowedAddresses.includes(addr));
 		if (!mailboxId) { console.log(`Ignoring email: no recipient matches EMAIL_ADDRESSES.`); return; }
+	} else if (envelopeTo) {
+		if (await mailboxExists(envelopeTo)) {
+			mailboxId = envelopeTo;
+		} else {
+			// One message to several of our addresses arrives once per address.
+			// If a real mailbox is also a recipient, it gets its own copy.
+			const ourRecipients = [...allRecipients, ...ccRecipients].filter((a) => a !== envelopeTo);
+			for (const a of ourRecipients) {
+				const receives = (await mailboxExists(a)) || !!(await getBurner(env.BUCKET, a))?.enabled;
+				if (receives) { console.log(`Catch-all copy for ${envelopeTo} skipped: ${a} receives it`); return; }
+			}
+			const catchAll = await getCatchAllStatus(env.BUCKET, envelopeTo.split("@")[1] ?? "");
+			if (!catchAll.mailboxId) {
+				console.log(`Rejecting email for unknown address ${envelopeTo}: catch-all is off`);
+				event.setReject?.("Address does not exist");
+				return;
+			}
+			mailboxId = catchAll.mailboxId;
+			folder = Folders.OTHER;
+		}
 	} else { mailboxId = allRecipients[0]; }
 	if (!mailboxId) throw new Error("received email with no valid recipient address");
 
 	const messageId = crypto.randomUUID();
-	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
+	if (!(await mailboxExists(mailboxId))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
+	// Show which address the mail was really sent to, even if it was a Bcc.
+	const recipientList = envelopeTo && !allRecipients.includes(envelopeTo) ? [...allRecipients, envelopeTo] : allRecipients;
 
 	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
 
@@ -623,16 +667,18 @@ async function receiveEmail(event: InboundEmail, env: Env, ctx: ExecutionContext
 	const emailReferences = parsedEmail.references ? parsedEmail.references.split(/\s+/).filter(Boolean).map(extractMsgId) : [];
 	let threadId = emailReferences[0] || inReplyTo || messageId;
 
-	if (!inReplyTo && emailReferences.length === 0) {
+	// Subject matching is skipped for "Other addresses" mail, so junk cannot
+	// join a real Inbox conversation by copying its subject.
+	if (!inReplyTo && emailReferences.length === 0 && folder !== Folders.OTHER) {
 		const subjectThread = await (stub as any).findThreadBySubject(parsedEmail.subject || "", parsedEmail.from?.address || undefined);
 		if (subjectThread) threadId = subjectThread;
 	}
 
 	const originalMessageId = parsedEmail.messageId ? extractMsgId(parsedEmail.messageId) : null;
 
-	await stub.createEmail(Folders.INBOX, {
+	await stub.createEmail(folder, {
 		id: messageId, subject: parsedEmail.subject || "",
-		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
+		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: recipientList.join(", "),
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
 		date: new Date().toISOString(), // uses receive time, not the email's Date header
 		body: parsedEmail.html || parsedEmail.text || "",
@@ -640,12 +686,10 @@ async function receiveEmail(event: InboundEmail, env: Env, ctx: ExecutionContext
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
 
-	// Burner mail is throwaway (sign-ups, receipts): count it, but do not
-	// ask the agent to draft a reply.
-	if (burner) {
-		ctx.waitUntil(recordBurnerHit(env.BUCKET, burner.address, true).catch(() => {}));
-		return;
-	}
+	// Burner mail is throwaway (sign-ups, receipts): count it. Nothing in
+	// "Other addresses" (burner or catch-all) gets an agent draft.
+	if (burner) ctx.waitUntil(recordBurnerHit(env.BUCKET, burner.address, true).catch(() => {}));
+	if (folder === Folders.OTHER) return;
 
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {

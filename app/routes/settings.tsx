@@ -3,9 +3,10 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Badge, Button, Input, Loader, useKumoToastManager } from "@cloudflare/kumo";
-import { RobotIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
+import { RobotIcon, ArrowCounterClockwiseIcon, FunnelSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
+import { useCatchAll, useSetCatchAll } from "~/queries/catchall";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 
 // Placeholder shown in the textarea when no custom prompt is set.
@@ -84,6 +85,8 @@ export default function SettingsRoute() {
 					</div>
 				</div>
 
+				<CatchAllSection mailboxId={mailbox.email} />
+
 				{/* Agent System Prompt */}
 				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
 					<div className="flex items-center justify-between mb-4">
@@ -133,6 +136,59 @@ export default function SettingsRoute() {
 					</Button>
 				</div>
 			</div>
+		</div>
+	);
+}
+
+/**
+ * Where mail to unknown addresses on this mailbox's domain goes: into one
+ * mailbox's "Other addresses" folder, or rejected. Saved as soon as it changes.
+ */
+function CatchAllSection({ mailboxId }: { mailboxId: string }) {
+	const toastManager = useKumoToastManager();
+	const { data } = useCatchAll();
+	const setCatchAll = useSetCatchAll();
+	const domain = mailboxId.split("@")[1]?.toLowerCase() ?? "";
+	const status = data?.find((d) => d.domain === domain);
+	if (!status) return null;
+
+	const OFF = "__off__";
+	const onChange = async (value: string) => {
+		try {
+			await setCatchAll.mutateAsync({ domain, mailboxId: value === OFF ? null : value });
+			toastManager.add({ title: value === OFF ? "Catch-all turned off" : `Catch-all mail now goes to ${value}` });
+		} catch (e) {
+			toastManager.add({ title: (e as Error).message || "Could not save", variant: "error" });
+		}
+	};
+
+	return (
+		<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
+			<div className="flex items-center gap-2 mb-2">
+				<FunnelSimpleIcon size={16} className="text-kumo-subtle" />
+				<span className="text-sm font-medium text-kumo-default">Catch-all for @{domain}</span>
+			</div>
+			<p className="text-xs text-kumo-subtle mb-3">
+				Mail sent to an address on @{domain} that is not a mailbox or a burner. It goes to the
+				"Other addresses" folder, never the Inbox. Turn it off to bounce that mail instead.
+			</p>
+			<select
+				aria-label={`Catch-all for ${domain}`}
+				value={status.mailboxId ?? OFF}
+				disabled={setCatchAll.isPending}
+				onChange={(e) => void onChange(e.target.value)}
+				className="w-full h-10 rounded-lg border border-kumo-line bg-kumo-recessed px-3 text-sm text-kumo-default"
+			>
+				{status.mailboxes.map((m) => (
+					<option key={m} value={m}>
+						Collect in {m === mailboxId ? "this mailbox" : m}
+					</option>
+				))}
+				<option value={OFF}>Off: reject unknown addresses</option>
+			</select>
+			{!status.configured && status.mailboxId && (
+				<p className="text-xs text-kumo-subtle mt-2">Default: the first mailbox on the domain collects it.</p>
+			)}
 		</div>
 	);
 }

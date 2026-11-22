@@ -17,6 +17,8 @@ export const Folders = {
 	ARCHIVE: "archive",
 	TRASH: "trash",
 	SPAM: "spam",
+	/** Mail to burners and to unknown (catch-all) addresses, kept out of the Inbox. */
+	OTHER: "other",
 } as const;
 
 export type FolderId = (typeof Folders)[keyof typeof Folders];
@@ -27,6 +29,7 @@ export type FolderId = (typeof Folders)[keyof typeof Folders];
  */
 export const SYSTEM_FOLDER_IDS: readonly FolderId[] = [
 	Folders.INBOX,
+	Folders.OTHER,
 	Folders.SENT,
 	Folders.DRAFT,
 	Folders.ARCHIVE,
@@ -44,15 +47,16 @@ export const FOLDER_DISPLAY_NAMES: Record<string, string> = {
 	[Folders.ARCHIVE]: "Archive",
 	[Folders.TRASH]: "Trash",
 	[Folders.SPAM]: "Spam",
+	[Folders.OTHER]: "Other addresses",
 };
 
 /** Formatted string for tool parameter descriptions (agent + MCP). */
 export const FOLDER_TOOL_DESCRIPTION =
-	"Folder to list: inbox, sent, draft, archive, trash";
+	"Folder to list: inbox, other (mail to burner and catch-all addresses), sent, draft, archive, trash";
 
 /** Formatted string for move-email tool descriptions. */
 export const MOVE_FOLDER_TOOL_DESCRIPTION =
-	"Target folder: inbox, sent, draft, archive, trash";
+	"Target folder: inbox, other, sent, draft, archive, trash";
 
 /**
  * Look up a display name for a folder ID, falling back to the raw ID
