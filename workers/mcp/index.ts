@@ -235,8 +235,12 @@ export class EmailMCP extends McpAgent<Env> {
 					.string()
 					.optional()
 					.describe("Thread ID to attach this draft to (optional)"),
+				from: z
+					.string()
+					.optional()
+					.describe("Optional From: one of this mailbox's burner addresses (see list_burners). Omit to send from the mailbox itself."),
 			},
-			async ({ mailboxId, to, subject, bodyHtml, in_reply_to, thread_id }) => {
+			async ({ mailboxId, to, subject, bodyHtml, in_reply_to, thread_id, from }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolDraftEmail(env, mailboxId, {
@@ -247,6 +251,7 @@ export class EmailMCP extends McpAgent<Env> {
 					runVerifyDraft: true,
 					in_reply_to,
 					thread_id,
+					from,
 				});
 				if ("error" in result) {
 					return mcpResult(result);
@@ -364,14 +369,19 @@ export class EmailMCP extends McpAgent<Env> {
 				to: z.string().email().describe("Recipient email address"),
 				subject: z.string().describe("Subject line"),
 				bodyHtml: z.string().describe("The HTML body of the email"),
+				from: z
+					.string()
+					.optional()
+					.describe("Optional From: one of this mailbox's burner addresses (see list_burners). Omit to send from the mailbox itself."),
 			},
-			async ({ mailboxId, to, subject, bodyHtml }) => {
+			async ({ mailboxId, to, subject, bodyHtml, from }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolSendEmail(env, mailboxId, {
 					to,
 					subject,
 					bodyHtml,
+					from,
 				});
 				if ("error" in result) {
 					if (typeof result.error === "string" && result.error.startsWith("Failed to send")) {

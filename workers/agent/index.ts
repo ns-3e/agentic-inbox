@@ -466,7 +466,9 @@ function createUnifiedEmailTools(env: Env, mailboxIds: string[]) {
 /**
  * Burner address tools. Given to the chat agent only, never to the
  * auto-draft run in handleNewEmail: that run reads untrusted inbound mail,
- * and an email must not be able to make the agent create or switch burners.
+ * and an email must not be able to make the agent create or switch burners,
+ * or pick which address a new email goes out from. The draft_email here
+ * replaces the base one and adds an optional burner `from`.
  * `resolve` maps the optional `mailbox` argument to a mailbox ID.
  */
 function createBurnerTools(env: Env, resolve: (mailbox?: string) => string, unified: boolean) {
@@ -495,6 +497,25 @@ function createBurnerTools(env: Env, resolve: (mailbox?: string) => string, unif
 			}),
 			execute: async ({ mailbox, label, localPart }: { mailbox?: string; label?: string; localPart?: string }): Promise<unknown> =>
 				toolCreateBurner(env, resolve(mailbox), { label, localPart }),
+		}),
+		draft_email: defineTool({
+			description:
+				"Draft a new email (not a reply) and save it to the Drafts folder. Does NOT send; the operator reviews it. Plain text body only. To send from a burner address (sign-ups, one-off sites, or when the operator asks), pass `from`; create_burner first if needed.",
+			parameters: z.object({
+				...mailboxArg,
+				to: z.string().email().describe("Recipient email address"),
+				subject: z.string().describe("Subject line"),
+				body: z.string().describe("The plain text body of the email. No HTML."),
+				from: z
+					.string()
+					.optional()
+					.describe("Optional: one of the mailbox's active burner addresses. Omit to use the mailbox's own address."),
+			}),
+			execute: async ({ mailbox, to, subject, body, from }: { mailbox?: string; to: string; subject: string; body: string; from?: string }): Promise<unknown> => {
+				const id = resolve(mailbox);
+				const result = await toolDraftEmail(env, id, { to, subject, body, from, isPlainText: true });
+				return unified ? { ...result, mailbox: id } : result;
+			},
 		}),
 		set_burner_enabled: defineTool({
 			description: "Turn a burner address on or off. While off, mail to it bounces. Reversible.",

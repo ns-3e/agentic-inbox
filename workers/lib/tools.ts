@@ -212,12 +212,16 @@ export async function toolDraftEmail(
 		in_reply_to?: string;
 		/** Optional thread_id for create_draft style */
 		thread_id?: string;
+		/** Optional From: the mailbox or one of its active burners */
+		from?: string;
 	},
 ): Promise<
 	| { status: string; draftId: string; threadId?: string; message: string; draft?: Record<string, string> }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
+	const sender = await resolveAgentFrom(env, mailboxId, params.from);
+	if ("error" in sender) return sender;
 
 	let processedBody = params.body.trim();
 	if (params.runVerifyDraft) {
@@ -249,7 +253,7 @@ export async function toolDraftEmail(
 		{
 			id: draftId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: sender.address,
 			recipient: (params.to || "").toLowerCase(),
 			date: new Date().toISOString(),
 			body: processedBody,
@@ -266,6 +270,7 @@ export async function toolDraftEmail(
 		threadId: resolvedThreadId,
 		message: "Draft saved to Drafts folder. Review it and confirm to send.",
 		draft: {
+			from: sender.address,
 			to: params.to,
 			subject: params.subject,
 			body: params.isPlainText ? params.body.trim() : processedBody,
@@ -488,6 +493,8 @@ export async function toolSendEmail(
 		to: string;
 		subject: string;
 		bodyHtml: string;
+		/** Optional From: the mailbox or one of its active burners */
+		from?: string;
 	},
 ): Promise<
 	| { status: "sent"; messageId: string; message: string }
@@ -501,7 +508,9 @@ export async function toolSendEmail(
 		return { error: rateLimitError };
 	}
 
-	const fromDomain = mailboxId.split("@")[1];
+	const sender = await resolveAgentFrom(env, mailboxId, params.from);
+	if ("error" in sender) return sender;
+	const fromDomain = sender.address.split("@")[1];
 	if (!fromDomain) throw new Error("Invalid mailbox email address");
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 
@@ -514,7 +523,7 @@ export async function toolSendEmail(
 	try {
 		({ messageId: deliveryId } = await sendEmail(env.EMAIL, {
 			to: params.to,
-			from: mailboxId,
+			from: sender.address,
 			subject: params.subject,
 			html: sanitizedBody,
 		}));
@@ -528,7 +537,7 @@ export async function toolSendEmail(
 		{
 			id: messageId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: sender.address,
 			recipient: params.to.toLowerCase(),
 			date: new Date().toISOString(),
 			body: sanitizedBody,
@@ -541,7 +550,32 @@ export async function toolSendEmail(
 		[],
 	);
 
-	return { status: "sent", messageId, message: `Email sent to ${params.to}` };
+	return { status: "sent", messageId, message: `Email sent to ${params.to} from ${sender.address}` };
+}
+
+// ── From address for new mail ──────────────────────────────────────
+
+/**
+ * Check an agent-chosen From for new mail: the mailbox itself, or one of
+ * its burners that is turned on. Omitted means the mailbox. Burners send as
+ * the bare address (no display name).
+ */
+export async function resolveAgentFrom(
+	env: Env,
+	mailboxId: string,
+	from?: string,
+): Promise<{ address: string } | { error: string }> {
+	const self = mailboxId.toLowerCase();
+	const wanted = from?.trim().toLowerCase();
+	if (!wanted || wanted === self) return { address: self };
+	const burner = await getBurner(env.BUCKET, wanted);
+	if (!burner || burner.mailboxId !== mailboxId) {
+		return { error: `${from} is not ${mailboxId} or one of its burners. Use list_burners, or create_burner first.` };
+	}
+	if (!burner.enabled) {
+		return { error: `The burner ${burner.address} is turned off. Ask the operator before turning it on, or use another address.` };
+	}
+	return { address: burner.address };
 }
 
 // ── burner addresses ───────────────────────────────────────────────
