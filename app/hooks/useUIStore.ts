@@ -25,6 +25,8 @@ export interface ComposeSnapshot {
 	quoteHtml: string;
 	attachments: ComposeAttachment[];
 	draftId?: string;
+	/** A burner address to send from; unset means the mailbox's own address. */
+	fromAddress?: string;
 }
 
 export interface ComposeOptions {

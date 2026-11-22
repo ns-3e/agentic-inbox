@@ -60,7 +60,9 @@ export async function handleReplyEmail(c: AppContext) {
 
 	let toStr: string, fromEmail: string, fromDomain: string, from: typeof body.from;
 	try {
-		({ toStr, fromEmail, fromDomain, from } = await resolveSender(c.env.BUCKET, to, body.from, mailboxId, threadBurner));
+		({ toStr, fromEmail, fromDomain, from } = await resolveSender(
+			c.env.BUCKET, to, body.from, mailboxId, body.keep_from ? null : threadBurner,
+		));
 	} catch (e) {
 		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
 		throw e;

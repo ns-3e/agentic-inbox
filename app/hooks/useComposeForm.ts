@@ -19,9 +19,10 @@ import {
 	toEmailListValue,
 } from "~/lib/utils";
 import { queryKeys } from "~/queries/keys";
+import { useBurners } from "~/queries/burners";
 import { useMailbox } from "~/queries/mailboxes";
 import api from "~/services/api";
-import type { Email, Mailbox } from "~/types";
+import type { Burner, Email, Mailbox } from "~/types";
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const AUTOSAVE_MS = 2000;
@@ -32,18 +33,21 @@ function getPrefixedSubject(subject: string, prefix: "Re" | "Fwd") {
 	return new RegExp(`^${prefix}:\\s`, "i").test(s) ? s : `${prefix}: ${s}`;
 }
 
-function uniqueAdd(list: string[], seen: Set<string>, raw: string, exclude?: string) {
+function uniqueAdd(list: string[], seen: Set<string>, raw: string, exclude?: Set<string>) {
 	const t = raw.trim();
 	if (!t) return;
 	const addr = parseAddress(t).address.toLowerCase();
-	if (!addr || addr === exclude || seen.has(addr)) return;
+	if (!addr || exclude?.has(addr) || seen.has(addr)) return;
 	seen.add(addr);
 	list.push(t);
 }
 
-/** Reply-all recipients: sender + other To in To, original Cc in Cc, never myself. */
-export function buildReplyAllRecipients(original: Pick<Email, "sender" | "recipient" | "cc">, self?: string) {
-	const me = self?.toLowerCase();
+/**
+ * Reply-all recipients: sender + other To in To, original Cc in Cc, never
+ * myself. `self` is my address, or all of them (mailbox and its burners).
+ */
+export function buildReplyAllRecipients(original: Pick<Email, "sender" | "recipient" | "cc">, self?: string | string[]) {
+	const me = new Set((Array.isArray(self) ? self : self ? [self] : []).map((a) => a.toLowerCase()));
 	const seen = new Set<string>();
 	const to: string[] = [];
 	uniqueAdd(to, seen, original.sender, me);
@@ -60,7 +64,15 @@ function buildForwardBlock(original: Email) {
 	return `<br><div>---------- Forwarded message ---------<br>From: ${escapeHtml(original.sender)}<br>Date: ${formatComposeDate(original.date)}<br>Subject: ${escapeHtml(original.subject)}<br>To: ${escapeHtml(original.recipient)}<br><br>${safeBody}</div>`;
 }
 
-function initialFields(options: ComposeOptions, mailbox: Mailbox | undefined): ComposeSnapshot {
+/** The burner that took part in an email (received at it, or sent from it). */
+function threadBurner(email: Pick<Email, "sender" | "recipient" | "cc">, burners: Burner[]): Burner | undefined {
+	const addrs = new Set(
+		[email.sender, ...splitEmailList(email.recipient), ...splitEmailList(email.cc)].map((a) => parseAddress(a).address.toLowerCase()),
+	);
+	return burners.find((b) => addrs.has(b.address));
+}
+
+function initialFields(options: ComposeOptions, mailbox: Mailbox | undefined, burners: Burner[] = []): ComposeSnapshot {
 	if (options.snapshot) return options.snapshot;
 	const sig = getSignatureBlock(mailbox?.settings);
 	const empty: ComposeSnapshot = { to: [], cc: [], bcc: [], showCcBcc: false, subject: "", body: "", quoteHtml: "", attachments: [] };
@@ -69,7 +81,8 @@ function initialFields(options: ComposeOptions, mailbox: Mailbox | undefined): C
 	if (draft) {
 		const cc = splitEmailList(draft.cc);
 		const bcc = splitEmailList(draft.bcc);
-		return { ...empty, to: splitEmailList(draft.recipient), cc, bcc, showCcBcc: cc.length + bcc.length > 0, subject: draft.subject || "", body: draft.body || "", draftId: draft.id };
+		const fromAddress = burners.find((b) => b.address === draft.sender?.toLowerCase())?.address;
+		return { ...empty, to: splitEmailList(draft.recipient), cc, bcc, showCcBcc: cc.length + bcc.length > 0, subject: draft.subject || "", body: draft.body || "", draftId: draft.id, fromAddress };
 	}
 	const sigBlock = sig ? `<p></p>${sig}` : "";
 	if (!original) return { ...empty, body: `<p></p>${sigBlock}` };
@@ -78,15 +91,17 @@ function initialFields(options: ComposeOptions, mailbox: Mailbox | undefined): C
 		return { ...empty, subject: getPrefixedSubject(original.subject, "Fwd"), body: `<p></p>${sigBlock}${buildForwardBlock(original)}` };
 	}
 	const quoteHtml = buildQuotedReplyBlock(original.date, original.sender, original.body || "");
+	// A conversation that went through a burner is answered from that burner.
+	const fromAddress = threadBurner(original, burners)?.address;
+	const selves = [mailbox?.email, ...burners.map((b) => b.address)].filter((a): a is string => !!a).map((a) => a.toLowerCase());
 	if (mode === "reply-all") {
-		const { to, cc } = buildReplyAllRecipients(original, mailbox?.email);
-		return { ...empty, to, cc, showCcBcc: cc.length > 0, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml };
+		const { to, cc } = buildReplyAllRecipients(original, selves);
+		return { ...empty, to, cc, showCcBcc: cc.length > 0, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml, fromAddress };
 	}
 	// reply: answer the sender (or, for my own message, the people I wrote to)
-	const self = mailbox?.email?.toLowerCase();
-	const fromMe = parseAddress(original.sender).address.toLowerCase() === self;
-	const to = fromMe ? splitEmailList(original.recipient) : [original.sender];
-	return { ...empty, to, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml };
+	const fromMe = selves.includes(parseAddress(original.sender).address.toLowerCase());
+	const to = fromMe ? splitEmailList(original.recipient).filter((a) => !selves.includes(parseAddress(a).address.toLowerCase())) : [original.sender];
+	return { ...empty, to, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml, fromAddress };
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -120,23 +135,27 @@ export type SaveStatus = "idle" | "saving" | "saved" | "error";
 export function useComposeForm(mailboxId: string | undefined, options: ComposeOptions) {
 	const qc = useQueryClient();
 	const { data: mailbox } = useMailbox(mailboxId);
+	const burnersQuery = useBurners(mailboxId);
+	const burners = useMemo(() => burnersQuery.data ?? [], [burnersQuery.data]);
+	// Burners decide the default From of a reply, so wait for them (or their failure).
+	const burnersReady = !mailboxId || burnersQuery.isFetched || burnersQuery.isError;
 	const closeCompose = useUIStore((s) => s.closeCompose);
 	const startCompose = useUIStore((s) => s.startCompose);
 
-	const [fields, setFields] = useState<ComposeSnapshot>(() => initialFields(options, mailbox));
+	const [fields, setFields] = useState<ComposeSnapshot>(() => initialFields(options, mailbox, burners));
 	const [pending, setPending] = useState({ to: "", cc: "", bcc: "" });
 	const [error, setError] = useState<string | null>(null);
 	const [status, setStatus] = useState<SaveStatus>(options.draftEmail || options.snapshot?.draftId ? "saved" : "idle");
 	const [isSending, setIsSending] = useState(false);
-	const [initialised, setInitialised] = useState(!!mailbox || !mailboxId);
+	const [initialised, setInitialised] = useState((!!mailbox && burnersReady) || !mailboxId);
 
 	// The signature loads with the mailbox; fill the form once it arrives.
 	useEffect(() => {
-		if (!initialised && mailbox) {
-			setFields(initialFields(options, mailbox));
+		if (!initialised && mailbox && burnersReady) {
+			setFields(initialFields(options, mailbox, burners));
 			setInitialised(true);
 		}
-	}, [initialised, mailbox, options]);
+	}, [initialised, mailbox, burnersReady, burners, options]);
 
 	const sig = useMemo(() => getSignatureBlock(mailbox?.settings), [mailbox]);
 
@@ -183,6 +202,7 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 					in_reply_to: o.originalEmail?.id || o.draftEmail?.in_reply_to || undefined,
 					thread_id: o.originalEmail?.thread_id || o.draftEmail?.thread_id || undefined,
 					draft_id: latest.current.fields.draftId,
+					from: f.fromAddress,
 				});
 				const newId = res?.id ?? res?.draft_id;
 				if (newId && newId !== latest.current.fields.draftId) {
@@ -321,14 +341,27 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 			return;
 		}
 
+		const burner = f.fromAddress ? burners.find((b) => b.address === f.fromAddress) : undefined;
+		if (f.fromAddress && !burner) {
+			setIsSending(false);
+			setError(`The burner ${f.fromAddress} no longer exists. Choose another From address.`);
+			return;
+		}
+		if (burner && !burner.enabled) {
+			setIsSending(false);
+			setError(`The burner ${burner.address} is turned off. Turn it on, or choose another From address.`);
+			return;
+		}
+		// A burner sends as the bare address: the display name is often a real name.
 		const fromName = mailbox.settings?.fromName || mailbox.name;
-		const from = fromName && fromName !== mailbox.email ? { email: mailbox.email, name: fromName } : mailbox.email;
+		const from = burner ? burner.address : fromName && fromName !== mailbox.email ? { email: mailbox.email, name: fromName } : mailbox.email;
 		const html = f.body + (f.quoteHtml || "");
 		const payload = {
 			to: toEmailListValue(r.to.map((a) => parseAddress(a).address)),
 			cc: toEmailListValue(r.cc.map((a) => parseAddress(a).address)),
 			bcc: toEmailListValue(r.bcc.map((a) => parseAddress(a).address)),
 			from,
+			keep_from: true,
 			subject: f.subject,
 			html,
 			text: htmlToPlainText(html),
@@ -366,7 +399,7 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 			},
 			onTimeout: () => void deliver(),
 		});
-	}, [isSending, mailbox, recipients, closeCompose, startCompose, qc]);
+	}, [isSending, mailbox, burners, recipients, closeCompose, startCompose, qc]);
 
 	return {
 		fields,
@@ -379,6 +412,8 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 		isSending,
 		initialised,
 		mailbox,
+		/** Burner addresses of the sending mailbox, for the From menu. */
+		burners,
 		addFiles,
 		removeAttachment,
 		expandQuote,

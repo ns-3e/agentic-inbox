@@ -74,6 +74,17 @@ describe("buildReplyAllRecipients", () => {
 	});
 });
 
+describe("buildReplyAllRecipients with burners", () => {
+	it("leaves out the mailbox and every burner", () => {
+		const r = buildReplyAllRecipients(
+			{ sender: "shop@store.test", recipient: "promo@ex.com, jane@x.com", cc: "me@ex.com, bob@y.com" },
+			["me@ex.com", "promo@ex.com"],
+		);
+		expect(r.to).toEqual(["shop@store.test", "jane@x.com"]);
+		expect(r.cc).toEqual(["bob@y.com"]);
+	});
+});
+
 describe("dates", () => {
 	const now = new Date("2026-11-22T12:00:00Z");
 	it("formats relative times", () => {

@@ -84,6 +84,12 @@ export const SendEmailRequestSchema = z
 		in_reply_to: z.string().optional(),
 		references: z.array(z.string()).optional(),
 		thread_id: z.string().optional(),
+		/**
+		 * Send with `from` exactly as given. Without it, a reply in a burner
+		 * conversation is switched from the mailbox address to the burner.
+		 * The composer sets it because the user chose the From themselves.
+		 */
+		keep_from: z.boolean().optional(),
 	})
 	.refine((data) => data.html || data.text, {
 		message: "Either 'html' or 'text' must be provided",

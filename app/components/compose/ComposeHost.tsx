@@ -12,6 +12,7 @@ import {
 	CaretDownIcon,
 	DotsThreeVerticalIcon,
 	FileIcon,
+	FireIcon,
 	LinkSimpleIcon,
 	MinusIcon,
 	PaperclipIcon,
@@ -46,6 +47,75 @@ function titleFor(mode: ComposeMode, subject: string, isDraft: boolean) {
 	if (subject.trim()) return subject;
 	if (isDraft) return "Draft";
 	return mode === "new" ? "New Message" : mode === "forward" ? "Forward" : "Reply";
+}
+
+/**
+ * From menu: the mailbox address (or, in All inboxes, every mailbox) and the
+ * mailbox's burner addresses. Replies in a burner conversation start on the
+ * burner. Hidden when there is nothing to choose, except on phones.
+ */
+function FromField({
+	form,
+	mailboxId,
+	canPick,
+	mailboxes,
+	setFrom,
+	alwaysShow,
+}: {
+	form: ComposeForm;
+	mailboxId?: string;
+	canPick: boolean;
+	mailboxes: string[];
+	setFrom?: (id: string) => void;
+	alwaysShow: boolean;
+}) {
+	const chosen = form.fields.fromAddress;
+	// Active burners, plus the chosen one even if it was turned off, so the menu shows the truth.
+	const burners = form.burners.filter((b) => b.enabled || b.address === chosen);
+	if (!canPick && !alwaysShow && burners.length === 0 && !chosen) return null;
+
+	const value = chosen ? `burner:${chosen}` : `mailbox:${mailboxId ?? ""}`;
+	const onChange = (v: string) => {
+		const [kind, address] = [v.slice(0, v.indexOf(":")), v.slice(v.indexOf(":") + 1)];
+		if (kind === "burner") return form.update({ fromAddress: address });
+		form.update({ fromAddress: undefined });
+		if (address !== mailboxId) setFrom?.(address);
+	};
+	const ownAddresses = canPick ? mailboxes : mailboxId ? [mailboxId] : [];
+
+	return (
+		<div className="flex items-center gap-2 min-h-12 md:min-h-10 border-b border-kumo-line">
+			<span className="text-sm text-kumo-subtle">From</span>
+			{chosen && <FireIcon size={16} className="shrink-0 text-kumo-subtle" aria-hidden />}
+			{ownAddresses.length + burners.length > 1 ? (
+				<select
+					aria-label="From"
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					className="flex-1 min-w-0 h-9 bg-transparent border-0 outline-none text-sm text-kumo-default cursor-pointer"
+				>
+					{ownAddresses.map((m) => (
+						<option key={m} value={`mailbox:${m}`}>
+							{m}
+						</option>
+					))}
+					{burners.length > 0 && (
+						<optgroup label="Burner addresses">
+							{burners.map((b) => (
+								<option key={b.address} value={`burner:${b.address}`}>
+									{b.address}
+									{b.label ? ` · ${b.label}` : ""}
+									{b.enabled ? "" : " (off)"}
+								</option>
+							))}
+						</optgroup>
+					)}
+				</select>
+			) : (
+				<span className="flex-1 min-w-0 truncate text-sm text-kumo-default">{chosen ?? mailboxId}</span>
+			)}
+		</div>
+	);
 }
 
 function SaveStatus({ form }: { form: ComposeForm }) {
@@ -202,27 +272,7 @@ function ComposerBody({
 					</div>
 				)}
 
-				{(canPick || isMobile) && (
-					<div className="flex items-center gap-2 min-h-12 md:min-h-10 border-b border-kumo-line">
-						<span className="text-sm text-kumo-subtle">From</span>
-						{canPick ? (
-							<select
-								aria-label="From"
-								value={mailboxId ?? ""}
-								onChange={(e) => setFrom?.(e.target.value)}
-								className="flex-1 min-w-0 h-9 bg-transparent border-0 outline-none text-sm text-kumo-default cursor-pointer"
-							>
-								{mailboxes.map((m) => (
-									<option key={m} value={m}>
-										{m}
-									</option>
-								))}
-							</select>
-						) : (
-							<span className="flex-1 min-w-0 truncate text-sm text-kumo-default">{mailboxId}</span>
-						)}
-					</div>
-				)}
+				<FromField form={form} mailboxId={mailboxId} canPick={canPick} mailboxes={mailboxes} setFrom={setFrom} alwaysShow={isMobile} />
 
 				{variant === "inline" && !showFields ? (
 					<div className="flex items-center gap-1 min-h-10">

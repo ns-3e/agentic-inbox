@@ -49,6 +49,8 @@ const DraftBody = z.object({
 	in_reply_to: z.string().optional(),
 	thread_id: z.string().optional(),
 	draft_id: z.string().optional(),
+	/** The mailbox address or one of its burners; anything else is ignored. */
+	from: z.string().optional(),
 });
 
 // -- Helpers --------------------------------------------------------
@@ -373,13 +375,19 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 
 app.post("/api/v1/mailboxes/:mailboxId/drafts", async (c: AppContext) => {
 	const mailboxId = c.req.param("mailboxId")!;
-	const { to, cc, bcc, subject, body, in_reply_to, thread_id, draft_id } = DraftBody.parse(await c.req.json());
+	const { to, cc, bcc, subject, body, in_reply_to, thread_id, draft_id, from } = DraftBody.parse(await c.req.json());
 	const stub = c.var.mailboxStub;
+	let sender = mailboxId.toLowerCase();
+	const wanted = from?.trim().toLowerCase();
+	if (wanted && wanted !== sender) {
+		const burner = await getBurner(c.env.BUCKET, wanted);
+		if (burner && burner.mailboxId === mailboxId) sender = burner.address;
+	}
 	if (draft_id) await stub.deleteEmail(draft_id); // not atomic — create-then-delete would be safer
 	const messageId = crypto.randomUUID();
 	const now = new Date().toISOString();
 	await stub.createEmail(Folders.DRAFT, {
-		id: messageId, subject: subject || "", sender: mailboxId.toLowerCase(),
+		id: messageId, subject: subject || "", sender,
 		recipient: (to || "").toLowerCase(), cc: cc?.toLowerCase() || null, bcc: bcc?.toLowerCase() || null,
 		date: now, body, in_reply_to: in_reply_to || null, email_references: null,
 		thread_id: thread_id || in_reply_to || messageId,
