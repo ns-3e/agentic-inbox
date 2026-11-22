@@ -5,6 +5,7 @@
 import {
 	CheckIcon,
 	EnvelopeSimpleIcon,
+	FireIcon,
 	GearSixIcon,
 	KeyboardIcon,
 	ListIcon,
@@ -175,6 +176,11 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 				...mailboxes.map((m) => ({ label: m.email, icon: <Avatar sender={m.email} size={22} />, onSelect: () => navigate(`/mailbox/${encodeURIComponent(m.id)}/emails/inbox`) })),
 				null,
 				{ label: "Agent", icon: <RobotIcon size={18} />, onSelect: handleAgentClick },
+				{
+					label: "Burner addresses",
+					icon: <FireIcon size={18} />,
+					onSelect: () => navigate(mailboxId ? `/mailbox/${mailboxId}/burners` : "/all/burners"),
+				},
 				...(mailboxId ? [{ label: "Mailbox settings", icon: <GearSixIcon size={18} />, onSelect: () => navigate(`/mailbox/${mailboxId}/settings`) }] : []),
 				{ label: "Manage mailboxes", icon: <EnvelopeSimpleIcon size={18} />, onSelect: () => navigate("/") },
 			]}

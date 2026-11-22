@@ -4,7 +4,7 @@
 
 import { Button, Dialog, Input, Loader, Switch, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import { CopyIcon, FireIcon, ShuffleIcon, TrashIcon } from "@phosphor-icons/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useParams } from "react-router";
 import { formatListDate } from "shared/dates";
 import { useBurners, useCreateBurner, useDeleteBurner, useUpdateBurner } from "~/queries/burners";
@@ -21,6 +21,14 @@ async function copy(text: string): Promise<boolean> {
 
 export default function BurnersRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
+	return <BurnerManager mailboxId={mailboxId} />;
+}
+
+/**
+ * Create, copy, toggle and delete the burners of one mailbox. `picker` is
+ * shown under the intro; All inboxes uses it to choose the mailbox.
+ */
+export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picker?: ReactNode }) {
 	const toast = useKumoToastManager();
 	const { data: burners, isLoading } = useBurners(mailboxId);
 	const createMutation = useCreateBurner(mailboxId);
@@ -75,6 +83,7 @@ export default function BurnersRoute() {
 			<p className="text-sm text-kumo-subtle mb-6">
 				Throwaway addresses that deliver to this inbox. Turn one off and mail to it bounces.
 			</p>
+			{picker}
 
 			{/* Create */}
 			<form onSubmit={handleCreate} className="rounded-lg border border-kumo-line bg-kumo-base p-5 mb-6 space-y-3">

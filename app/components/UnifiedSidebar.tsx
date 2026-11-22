@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { CaretLeftIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, FireIcon } from "@phosphor-icons/react";
 import { Link } from "react-router";
 import { Folders } from "shared/folders";
 import { mailboxHue } from "~/components/EmailListRow";
@@ -53,6 +53,14 @@ export default function UnifiedSidebar({
 						collapsed={collapsed}
 					/>
 				))}
+
+				<NavPill
+					to="/all/burners"
+					label="Burner addresses"
+					icon={<FireIcon size={20} weight={active === "burners" ? "fill" : "regular"} />}
+					active={active === "burners"}
+					collapsed={collapsed}
+				/>
 
 				{!collapsed && <div className="pl-[1.625rem] pt-4 pb-1 text-base text-kumo-default">Mailboxes</div>}
 				{summaries.map((m) => (
