@@ -16,6 +16,9 @@ export const queryKeys = {
 		thread: (mailboxId: string, threadId: string) =>
 			["emails", mailboxId, "thread", threadId] as const,
 	},
+	burners: {
+		list: (mailboxId: string) => ["burners", mailboxId] as const,
+	},
 	folders: {
 		list: (mailboxId: string) => ["folders", mailboxId] as const,
 	},

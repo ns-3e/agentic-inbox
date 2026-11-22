@@ -20,6 +20,15 @@ import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
+import {
+	BurnerError,
+	createBurner,
+	deleteBurner,
+	getBurner,
+	listBurners,
+	putBurner,
+	recordBurnerHit,
+} from "./lib/burners";
 
 type AppContext = Context<MailboxContext>;
 
@@ -108,6 +117,7 @@ app.post("/api/v1/mailboxes", async (c) => {
 	}
 	const key = `mailboxes/${email}.json`;
 	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);
+	if (await getBurner(c.env.BUCKET, email)) return c.json({ error: "That address is a burner" }, 409);
 	const defaultSettings = { fromName: name, forwarding: { enabled: false, email: "" }, signature: { enabled: false, text: "" }, autoReply: { enabled: false, subject: "", message: "" } };
 	const finalSettings = { ...defaultSettings, ...settings };
 	await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
@@ -420,6 +430,54 @@ app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => 
 	return ok ? c.body(null, 204) : c.json({ error: "Folder not found or cannot be deleted" }, 400);
 });
 
+// -- Burner addresses -----------------------------------------------
+
+const CreateBurnerBody = z.object({
+	label: z.string().max(100).optional(),
+	localPart: z.string().max(64).optional(),
+});
+
+const UpdateBurnerBody = z.object({
+	enabled: z.boolean().optional(),
+	label: z.string().max(100).optional(),
+});
+
+app.get("/api/v1/mailboxes/:mailboxId/burners", async (c: AppContext) => {
+	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
+	return c.json(await listBurners(c.env.BUCKET, mailboxId));
+});
+
+app.post("/api/v1/mailboxes/:mailboxId/burners", async (c: AppContext) => {
+	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
+	const body = CreateBurnerBody.parse(await c.req.json().catch(() => ({})));
+	try {
+		return c.json(await createBurner(c.env.BUCKET, mailboxId, body), 201);
+	} catch (e) {
+		if (e instanceof BurnerError) return c.json({ error: e.message }, e.status);
+		throw e;
+	}
+});
+
+app.patch("/api/v1/mailboxes/:mailboxId/burners/:address", async (c: AppContext) => {
+	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
+	const burner = await getBurner(c.env.BUCKET, decodeURIComponent(c.req.param("address")!));
+	if (!burner || burner.mailboxId !== mailboxId) return c.json({ error: "Burner not found" }, 404);
+	const { enabled, label } = UpdateBurnerBody.parse(await c.req.json());
+	if (enabled !== undefined) burner.enabled = enabled;
+	if (label !== undefined) burner.label = label.trim();
+	await putBurner(c.env.BUCKET, burner);
+	return c.json(burner);
+});
+
+app.delete("/api/v1/mailboxes/:mailboxId/burners/:address", async (c: AppContext) => {
+	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
+	const address = decodeURIComponent(c.req.param("address")!);
+	const burner = await getBurner(c.env.BUCKET, address);
+	if (!burner || burner.mailboxId !== mailboxId) return c.json({ error: "Burner not found" }, 404);
+	await deleteBurner(c.env.BUCKET, address);
+	return c.body(null, 204);
+});
+
 // -- Search ---------------------------------------------------------
 
 app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
@@ -471,7 +529,21 @@ async function streamToArrayBuffer(stream: ReadableStream, streamSize: number) {
 	return result;
 }
 
-async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env: Env, ctx: ExecutionContext) {
+type InboundEmail = { raw: ReadableStream; rawSize: number; to?: string; setReject?: (reason: string) => void };
+
+async function receiveEmail(event: InboundEmail, env: Env, ctx: ExecutionContext) {
+	// Burner addresses are resolved from the SMTP envelope recipient, so they
+	// work even when the burner was only in Bcc. A disabled burner bounces
+	// the message before it is read.
+	const envelopeTo = event.to?.toLowerCase();
+	const burner = envelopeTo ? await getBurner(env.BUCKET, envelopeTo) : null;
+	if (burner && !burner.enabled) {
+		console.log(`Rejecting email for disabled burner ${burner.address}`);
+		ctx.waitUntil(recordBurnerHit(env.BUCKET, burner.address, false).catch(() => {}));
+		event.setReject?.("Address does not exist");
+		return;
+	}
+
 	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
 	const parsedEmail = await new PostalMime().parse(rawEmail);
 
@@ -483,7 +555,9 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 	const bccRecipients = (parsedEmail.bcc || []).map((e) => e.address?.toLowerCase()).filter(Boolean) as string[];
 
 	let mailboxId: string | undefined;
-	if (allowedAddresses.length > 0) {
+	if (burner) {
+		mailboxId = burner.mailboxId;
+	} else if (allowedAddresses.length > 0) {
 		mailboxId = allRecipients.find((addr) => allowedAddresses.includes(addr));
 		if (!mailboxId) { console.log(`Ignoring email: no recipient matches EMAIL_ADDRESSES.`); return; }
 	} else { mailboxId = allRecipients[0]; }
@@ -527,6 +601,13 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		in_reply_to: inReplyTo, email_references: emailReferences.length > 0 ? JSON.stringify(emailReferences) : null,
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),
 	}, attachmentData);
+
+	// Burner mail is throwaway (sign-ups, receipts): count it, but do not
+	// ask the agent to draft a reply.
+	if (burner) {
+		ctx.waitUntil(recordBurnerHit(env.BUCKET, burner.address, true).catch(() => {}));
+		return;
+	}
 
 	const agentStub = env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(mailboxId));
 	ctx.waitUntil(agentStub.fetch(new Request("https://agents/onNewEmail", {

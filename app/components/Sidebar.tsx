@@ -8,6 +8,7 @@ import {
 	CaretLeftIcon,
 	StackIcon,
 	FileIcon,
+	FireIcon,
 	FolderIcon,
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
@@ -183,6 +184,13 @@ export default function Sidebar() {
 						onClick={handleNavClick}
 					/>
 				))}
+
+				<FolderLink
+					to={`/mailbox/${mailboxId}/burners`}
+					icon={<FireIcon size={18} weight="regular" />}
+					label="Burner addresses"
+					onClick={handleNavClick}
+				/>
 
 				{/* Custom folders */}
 				{customFolders.length > 0 && (

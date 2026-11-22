@@ -19,6 +19,9 @@ import {
 	toolSendEmail,
 	toolMarkEmailRead,
 	toolMoveEmail,
+	toolListBurners,
+	toolCreateBurner,
+	toolSetBurnerEnabled,
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
@@ -427,6 +430,60 @@ export class EmailMCP extends McpAgent<Env> {
 					};
 				}
 				return mcpText(result);
+			},
+		);
+
+		// ── list_burners ───────────────────────────────────────────
+		this.server.tool(
+			"list_burners",
+			"List the burner (throwaway) addresses of a mailbox, with label, on/off state, and received/blocked counts.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+			},
+			async ({ mailboxId }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpText(await toolListBurners(env, mailboxId));
+			},
+		);
+
+		// ── create_burner ──────────────────────────────────────────
+		this.server.tool(
+			"create_burner",
+			"Create a burner (throwaway) address on the mailbox's domain. Mail to it is delivered to the mailbox's Inbox. Use it for sign-ups, trials, and other one-off sites. Omit localPart for a random name.",
+			{
+				mailboxId: z.string().describe("The mailbox that receives the burner's mail"),
+				label: z
+					.string()
+					.max(100)
+					.optional()
+					.describe("What the burner is for, e.g. 'Shoe store sign-up'"),
+				localPart: z
+					.string()
+					.max(64)
+					.optional()
+					.describe("Optional custom name before the @ (letters, numbers, dots, dashes, underscores)"),
+			},
+			async ({ mailboxId, label, localPart }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpResult(await toolCreateBurner(env, mailboxId, { label, localPart }));
+			},
+		);
+
+		// ── set_burner_enabled ─────────────────────────────────────
+		this.server.tool(
+			"set_burner_enabled",
+			"Turn a burner address on or off. While off, mail to it bounces. Reversible.",
+			{
+				mailboxId: z.string().describe("The mailbox that owns the burner"),
+				address: z.string().describe("The full burner address"),
+				enabled: z.boolean().describe("true to turn on, false to turn off"),
+			},
+			async ({ mailboxId, address, enabled }) => {
+				const denied = await verifyMailbox(mailboxId);
+				if (denied) return denied;
+				return mcpResult(await toolSetBurnerEnabled(env, mailboxId, address, enabled));
 			},
 		);
 	}

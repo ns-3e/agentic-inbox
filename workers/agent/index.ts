@@ -30,6 +30,9 @@ import {
 	toolMarkEmailRead,
 	toolMoveEmail,
 	toolDiscardDraft,
+	toolListBurners,
+	toolCreateBurner,
+	toolSetBurnerEnabled,
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
@@ -460,6 +463,52 @@ function createUnifiedEmailTools(env: Env, mailboxIds: string[]) {
 	};
 }
 
+/**
+ * Burner address tools. Given to the chat agent only, never to the
+ * auto-draft run in handleNewEmail: that run reads untrusted inbound mail,
+ * and an email must not be able to make the agent create or switch burners.
+ * `resolve` maps the optional `mailbox` argument to a mailbox ID.
+ */
+function createBurnerTools(env: Env, resolve: (mailbox?: string) => string, unified: boolean) {
+	const mailboxArg: z.ZodRawShape = unified
+		? { mailbox: z.string().describe("The mailbox that owns the burner (exact address)") }
+		: {};
+	return {
+		list_burners: defineTool({
+			description:
+				"List burner (throwaway) addresses, with label, on/off state, and received/blocked counts.",
+			parameters: z.object({ ...mailboxArg }),
+			execute: async ({ mailbox }: { mailbox?: string }): Promise<unknown> =>
+				toolListBurners(env, resolve(mailbox)),
+		}),
+		create_burner: defineTool({
+			description:
+				"Create a burner (throwaway) address for sign-ups, trials, or other one-off sites. Mail to it arrives in the Inbox. Omit localPart for a random name. Tell the operator the new address.",
+			parameters: z.object({
+				...mailboxArg,
+				label: z.string().max(100).optional().describe("What the burner is for, e.g. 'Shoe store sign-up'"),
+				localPart: z
+					.string()
+					.max(64)
+					.optional()
+					.describe("Optional custom name before the @ (letters, numbers, dots, dashes, underscores)"),
+			}),
+			execute: async ({ mailbox, label, localPart }: { mailbox?: string; label?: string; localPart?: string }): Promise<unknown> =>
+				toolCreateBurner(env, resolve(mailbox), { label, localPart }),
+		}),
+		set_burner_enabled: defineTool({
+			description: "Turn a burner address on or off. While off, mail to it bounces. Reversible.",
+			parameters: z.object({
+				...mailboxArg,
+				address: z.string().describe("The full burner address"),
+				enabled: z.boolean().describe("true to turn on, false to turn off"),
+			}),
+			execute: async ({ mailbox, address, enabled }: { mailbox?: string; address: string; enabled: boolean }): Promise<unknown> =>
+				toolSetBurnerEnabled(env, resolve(mailbox), address, enabled),
+		}),
+	};
+}
+
 function getUnifiedSystemPrompt(mailboxIds: string[]): string {
 	return `${DEFAULT_SYSTEM_PROMPT}
 
@@ -486,10 +535,16 @@ export class EmailAgent extends AIChatAgent<any> {
 		let systemPrompt: string;
 		if (mailboxId === UNIFIED_AGENT_NAME) {
 			const mailboxIds = (await listMailboxes(env.BUCKET)).map((m) => m.id);
-			tools = createUnifiedEmailTools(env, mailboxIds);
+			const known = new Set(mailboxIds.map((m) => m.toLowerCase()));
+			const resolve = (mailbox?: string) => {
+				const id = (mailbox ?? "").trim().toLowerCase();
+				if (!known.has(id)) throw new Error(`Unknown mailbox "${mailbox}". Valid mailboxes: ${mailboxIds.join(", ")}`);
+				return id;
+			};
+			tools = { ...createUnifiedEmailTools(env, mailboxIds), ...createBurnerTools(env, resolve, true) };
 			systemPrompt = getUnifiedSystemPrompt(mailboxIds);
 		} else {
-			tools = createEmailTools(env, mailboxId);
+			tools = { ...createEmailTools(env, mailboxId), ...createBurnerTools(env, () => mailboxId, false) };
 			systemPrompt = await getSystemPrompt(env, mailboxId);
 		}
 

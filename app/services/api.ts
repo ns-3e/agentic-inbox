@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Email, Folder, Mailbox, MailboxSummary } from "~/types";
+import type { Burner, Email, Folder, Mailbox, MailboxSummary } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -77,6 +77,13 @@ function post<T>(url: string, body?: unknown, opts?: { signal?: AbortSignal }) {
 function put<T>(url: string, body?: unknown) {
 	return request<T>(url, {
 		method: "PUT",
+		body: body != null ? JSON.stringify(body) : undefined,
+	});
+}
+
+function patch<T>(url: string, body?: unknown) {
+	return request<T>(url, {
+		method: "PATCH",
 		body: body != null ? JSON.stringify(body) : undefined,
 	});
 }
@@ -156,6 +163,16 @@ const api = {
 		put<Folder>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`, { name }),
 	deleteFolder: (mailboxId: string, id: string) =>
 		del<void>(`/api/v1/mailboxes/${mailboxId}/folders/${id}`),
+
+	// Burner addresses
+	listBurners: (mailboxId: string) =>
+		get<Burner[]>(`/api/v1/mailboxes/${mailboxId}/burners`),
+	createBurner: (mailboxId: string, data: { label?: string; localPart?: string }) =>
+		post<Burner>(`/api/v1/mailboxes/${mailboxId}/burners`, data),
+	updateBurner: (mailboxId: string, address: string, data: { enabled?: boolean; label?: string }) =>
+		patch<Burner>(`/api/v1/mailboxes/${mailboxId}/burners/${encodeURIComponent(address)}`, data),
+	deleteBurner: (mailboxId: string, address: string) =>
+		del<void>(`/api/v1/mailboxes/${mailboxId}/burners/${encodeURIComponent(address)}`),
 
 	// Unified (all mailboxes)
 	listUnifiedEmails: (params: Record<string, string>, opts?: { signal?: AbortSignal }) =>

@@ -30,6 +30,7 @@ import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
+import { BurnerError, createBurner, getBurner, listBurners, putBurner } from "./burners";
 
 // ── Type casts for DO methods not on the base stub type ────────────
 type MailboxSearchStub = {
@@ -532,4 +533,42 @@ export async function toolSendEmail(
 	);
 
 	return { status: "sent", messageId, message: `Email sent to ${params.to}` };
+}
+
+// ── burner addresses ───────────────────────────────────────────────
+// Agents can list, create, and turn burners on or off. Deleting is left to
+// the UI on purpose: turning a burner off is reversible, deleting is not.
+
+export async function toolListBurners(env: Env, mailboxId: string) {
+	const burners = await listBurners(env.BUCKET, mailboxId);
+	return { burners };
+}
+
+export async function toolCreateBurner(
+	env: Env,
+	mailboxId: string,
+	params: { label?: string; localPart?: string },
+) {
+	try {
+		const burner = await createBurner(env.BUCKET, mailboxId, params);
+		return { burner, note: `Mail to ${burner.address} is delivered to ${mailboxId}'s Inbox.` };
+	} catch (e) {
+		if (e instanceof BurnerError) return { error: e.message };
+		throw e;
+	}
+}
+
+export async function toolSetBurnerEnabled(
+	env: Env,
+	mailboxId: string,
+	address: string,
+	enabled: boolean,
+) {
+	const burner = await getBurner(env.BUCKET, address.trim().toLowerCase());
+	if (!burner || burner.mailboxId !== mailboxId) {
+		return { error: `Burner "${address}" not found in ${mailboxId}. Use list_burners to see them.` };
+	}
+	burner.enabled = enabled;
+	await putBurner(env.BUCKET, burner);
+	return { burner };
 }

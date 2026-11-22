@@ -70,6 +70,17 @@ export interface Folder {
 	unreadCount: number;
 }
 
+export interface Burner {
+	address: string;
+	mailboxId: string;
+	label: string;
+	enabled: boolean;
+	createdAt: string;
+	receivedCount: number;
+	blockedCount: number;
+	lastReceivedAt: string | null;
+}
+
 export interface MailboxSummary {
 	id: string;
 	email: string;
