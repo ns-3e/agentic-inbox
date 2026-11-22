@@ -162,3 +162,34 @@ export async function recordBurnerHit(bucket: R2Bucket, address: string, deliver
 	}
 	await putBurner(bucket, burner);
 }
+
+const ADDRESS_RE = /[^\s<>,;"']+@[^\s<>,;"']+/g;
+
+/** Every distinct, lowercased email address found in the given header fields. */
+export function addressesIn(...fields: (string | null | undefined)[]): string[] {
+	const out = new Set<string>();
+	for (const f of fields) for (const m of (f || "").matchAll(ADDRESS_RE)) out.add(m[0].toLowerCase());
+	return [...out];
+}
+
+/**
+ * The burner of `mailboxId` that took part in an email, if any: found in its
+ * recipients (mail received at the burner) or its sender (a reply already
+ * sent from the burner). Replies to that email go out from this burner, so
+ * the mailbox's real address is never revealed in a burner conversation.
+ */
+export async function findThreadBurner(
+	bucket: R2Bucket,
+	mailboxId: string,
+	email: { sender?: string | null; recipient?: string | null; cc?: string | null },
+): Promise<Burner | null> {
+	const self = mailboxId.toLowerCase();
+	const candidates = addressesIn(email.recipient, email.cc, email.sender)
+		.filter((a) => a !== self && a.endsWith(`@${self.split("@")[1]}`))
+		.slice(0, 10);
+	for (const address of candidates) {
+		const burner = await getBurner(bucket, address);
+		if (burner && burner.mailboxId === mailboxId) return burner;
+	}
+	return null;
+}

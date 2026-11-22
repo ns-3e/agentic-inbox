@@ -9,7 +9,7 @@ import { z } from "zod";
 import { trySendEmail } from "./email-sender";
 import { storeAttachments, type StoredAttachment } from "./lib/attachments";
 import {
-	validateSender,
+	resolveSender,
 	SenderValidationError,
 	generateMessageId,
 	buildThreadingHeaders,
@@ -328,11 +328,11 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const mailboxId = c.req.param("mailboxId")!;
 	const body = SendEmailRequestSchema.parse(await c.req.json());
-	const { to, cc, bcc, from, subject, html, text, attachments, in_reply_to, references, thread_id } = body;
+	const { to, cc, bcc, subject, html, text, attachments, in_reply_to, references, thread_id } = body;
 
-	let toStr: string, fromEmail: string, fromDomain: string;
+	let toStr: string, fromEmail: string, fromDomain: string, from: typeof body.from;
 	try {
-		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId));
+		({ toStr, fromEmail, fromDomain, from } = await resolveSender(c.env.BUCKET, to, body.from, mailboxId));
 	} catch (e) {
 		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
 		throw e;

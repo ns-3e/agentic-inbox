@@ -30,7 +30,7 @@ import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
-import { BurnerError, createBurner, getBurner, listBurners, putBurner } from "./burners";
+import { BurnerError, createBurner, findThreadBurner, getBurner, listBurners, putBurner } from "./burners";
 
 // ── Type casts for DO methods not on the base stub type ────────────
 type MailboxSearchStub = {
@@ -164,13 +164,15 @@ export async function toolDraftReply(
 			})
 		: "";
 	const bodyHtml = processedBody + quotedBlock;
+	// Replies in a burner conversation are drafted from that burner.
+	const threadBurner = original ? await findThreadBurner(env.BUCKET, mailboxId, original) : null;
 
 	await stub.createEmail(
 		Folders.DRAFT,
 		{
 			id: draftId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: threadBurner?.address ?? mailboxId.toLowerCase(),
 			recipient: params.to.toLowerCase(),
 			date: new Date().toISOString(),
 			body: bodyHtml,
@@ -187,6 +189,7 @@ export async function toolDraftReply(
 		message: "Draft saved to Drafts folder. Review it and confirm to send.",
 		draft: {
 			originalEmailId: params.originalEmailId,
+			from: threadBurner?.address ?? mailboxId,
 			to: params.to,
 			subject: params.subject,
 			body: params.isPlainText ? params.body.trim() : bodyHtml,
@@ -307,7 +310,7 @@ export async function toolUpdateDraft(
 		{
 			id: newDraftId,
 			subject: params.subject ?? oldDraft.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: oldDraft.sender || mailboxId.toLowerCase(),
 			recipient: (params.to ?? oldDraft.recipient).toLowerCase(),
 			date: new Date().toISOString(),
 			body: verifiedBody,
@@ -418,7 +421,13 @@ export async function toolSendReply(
 	}
 
 	const { originalMsgId, references, threadId } = buildReferencesChain(originalEmail);
-	const fromDomain = mailboxId.split("@")[1];
+	// A burner conversation is answered from the burner, never the real address.
+	const threadBurner = await findThreadBurner(env.BUCKET, mailboxId, originalEmail);
+	if (threadBurner && !threadBurner.enabled) {
+		return { error: `This conversation uses the burner ${threadBurner.address}, which is turned off. Turn it on to reply from it.` };
+	}
+	const fromAddress = threadBurner?.address ?? mailboxId.toLowerCase();
+	const fromDomain = fromAddress.split("@")[1];
 	if (!fromDomain) throw new Error("Invalid mailbox email address");
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 
@@ -438,7 +447,7 @@ export async function toolSendReply(
 	try {
 		({ messageId: deliveryId } = await sendEmail(env.EMAIL, {
 			to: params.to,
-			from: mailboxId,
+			from: fromAddress,
 			subject: params.subject,
 			html: fullBodyHtml,
 			headers: buildThreadingHeaders(originalMsgId, references),
@@ -453,7 +462,7 @@ export async function toolSendReply(
 		{
 			id: messageId,
 			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
+			sender: fromAddress,
 			recipient: params.to.toLowerCase(),
 			date: new Date().toISOString(),
 			body: fullBodyHtml,
@@ -467,7 +476,7 @@ export async function toolSendReply(
 		[],
 	);
 
-	return { status: "sent", messageId, message: `Reply sent to ${params.to}` };
+	return { status: "sent", messageId, message: `Reply sent to ${params.to} from ${fromAddress}` };
 }
 
 // ── send_email ─────────────────────────────────────────────────────

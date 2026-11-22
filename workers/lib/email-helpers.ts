@@ -13,6 +13,7 @@ import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
+import { type Burner, getBurner } from "./burners";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -68,6 +69,42 @@ export function validateSender(
 	}
 
 	return { toStr, fromEmail, fromDomain };
+}
+
+/**
+ * validateSender, plus burner addresses. The From address may be the mailbox
+ * or one of its burners. When `threadBurner` is given (the email being
+ * answered came to, or was sent from, a burner), a From of the bare mailbox
+ * is switched to that burner, without the mailbox's display name, which is
+ * often the owner's real name. A burner that is turned off cannot send.
+ *
+ * Returns the `from` value to send with.
+ */
+export async function resolveSender(
+	bucket: R2Bucket,
+	to: string | string[],
+	from: string | { email: string; name: string },
+	mailboxId: string,
+	threadBurner?: Burner | null,
+): Promise<{ toStr: string; fromEmail: string; fromDomain: string; from: string | { email: string; name: string }; burner: Burner | null }> {
+	let sendFrom = from;
+	let fromEmail = (typeof from === "string" ? from : from.email).toLowerCase();
+	if (threadBurner && fromEmail === mailboxId.toLowerCase()) {
+		sendFrom = threadBurner.address;
+		fromEmail = threadBurner.address;
+	}
+	if (fromEmail === mailboxId.toLowerCase()) {
+		return { ...validateSender(to, sendFrom, mailboxId), from: sendFrom, burner: null };
+	}
+	const burner = threadBurner?.address === fromEmail ? threadBurner : await getBurner(bucket, fromEmail);
+	if (!burner || burner.mailboxId !== mailboxId) {
+		throw new SenderValidationError("From address must be the mailbox address or one of its burner addresses");
+	}
+	if (!burner.enabled) {
+		throw new SenderValidationError(`The burner ${burner.address} is turned off. Turn it on to send from it.`);
+	}
+	const toStr = (Array.isArray(to) ? to.join(", ") : to).toLowerCase();
+	return { toStr, fromEmail, fromDomain: fromEmail.split("@")[1], from: sendFrom, burner };
 }
 
 export class SenderValidationError extends Error {

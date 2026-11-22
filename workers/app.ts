@@ -11,6 +11,7 @@ import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
 import type { EmailSendingEvent } from "./lib/delivery-events";
 import { getMailboxStub } from "./lib/email-helpers";
+import { getBurner } from "./lib/burners";
 
 export { MailboxDO } from "./durableObject";
 export { EmailAgent } from "./agent";
@@ -136,10 +137,15 @@ export default {
 		for (const msg of batch.messages) {
 			const event = msg.body;
 			try {
-				const mailboxId = event?.payload?.sender?.toLowerCase();
+				let mailboxId = event?.payload?.sender?.toLowerCase();
 				if (!event?.type?.startsWith("cf.email.sending.") || !mailboxId) {
 					msg.ack();
 					continue;
+				}
+				// Mail sent from a burner: the event belongs to the burner's mailbox.
+				if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
+					const burner = await getBurner(env.BUCKET, mailboxId);
+					if (burner) mailboxId = burner.mailboxId;
 				}
 				if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) {
 					console.log(`Ignoring delivery event for ${mailboxId}: mailbox does not exist`);
