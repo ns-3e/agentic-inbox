@@ -10,7 +10,12 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    cloudflare({
+      viteEnvironment: { name: "ssr" },
+      // LOCAL_ONLY=1 npm run dev: run without remote bindings (no Cloudflare
+      // login needed). Sending mail is not available in this mode.
+      remoteBindings: process.env.LOCAL_ONLY !== "1",
+    }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

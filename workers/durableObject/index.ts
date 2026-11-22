@@ -280,6 +280,7 @@ export class MailboxDO extends DurableObject<Env> {
 					lp.read, lp.starred, lp.thread_id, lp.folder_id,
 					lp.in_reply_to, lp.email_references,
 					SUBSTR(lp.body, 1, 300) as snippet,
+					EXISTS(SELECT 1 FROM attachments a WHERE a.email_id = lp.id AND (a.disposition IS NULL OR a.disposition != 'inline')) as has_attachment,
 					ds.thread_count, ds.thread_unread_count, ds.participants
 				FROM latest_per_group lp
 				JOIN draft_stats ds ON lp.draft_group_key = ds.draft_group_key
@@ -297,6 +298,7 @@ export class MailboxDO extends DurableObject<Env> {
 				thread_count: row.thread_count || 1,
 				thread_unread_count: row.thread_unread_count || 0,
 				participants: row.participants || row.sender,
+				has_attachment: !!row.has_attachment,
 			}));
 		}
 
@@ -368,6 +370,7 @@ export class MailboxDO extends DurableObject<Env> {
 				lif.read, lif.starred, lif.thread_id, lif.folder_id,
 				lif.in_reply_to, lif.email_references,
 				SUBSTR(lif.body, 1, 300) as snippet,
+				EXISTS(SELECT 1 FROM attachments a WHERE a.email_id = lif.id AND (a.disposition IS NULL OR a.disposition != 'inline')) as has_attachment,
 				cs.thread_count, cs.thread_unread_count, cs.participants,
 				CASE WHEN lmc.folder_id != (SELECT id FROM folders WHERE name = 'sent' LIMIT 1)
 					AND lmc.folder_id != (SELECT id FROM folders WHERE name = 'draft' LIMIT 1)
@@ -394,7 +397,50 @@ export class MailboxDO extends DurableObject<Env> {
 			participants: row.participants || row.sender,
 			needs_reply: !!row.needs_reply,
 			has_draft: !!row.has_draft,
+			has_attachment: !!row.has_attachment,
 		}));
+	}
+
+	/**
+	 * People this mailbox has exchanged mail with, most recent first, for
+	 * recipient autocomplete. Reads senders of received mail and recipients
+	 * of sent mail from the newest 2000 messages.
+	 */
+	async getContacts(query = "", limit = 8) {
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				`SELECT sender, recipient, cc, date, folder_id FROM emails
+				 WHERE COALESCE(folder_id, '') != ?1
+				 ORDER BY date DESC LIMIT 2000`,
+				Folders.DRAFT,
+			),
+		] as { sender: string; recipient: string; cc: string | null; date: string; folder_id: string }[];
+		const sentId: string = Folders.SENT;
+		const seen = new Map<string, { address: string; name: string; date: string; count: number }>();
+		const add = (raw: string, date: string) => {
+			for (const part of raw.split(",")) {
+				const t = part.trim();
+				const lt = t.indexOf("<");
+				const address = (lt >= 0 ? t.slice(lt + 1, t.indexOf(">", lt) > lt ? t.indexOf(">", lt) : undefined) : t).trim().toLowerCase();
+				if (!/^[^\s@]+@[^\s@]+$/.test(address)) continue;
+				const name = lt > 0 ? t.slice(0, lt).trim().replace(/^"|"$/g, "") : "";
+				const prev = seen.get(address);
+				if (prev) {
+					prev.count++;
+					if (!prev.name && name) prev.name = name;
+				} else seen.set(address, { address, name, date, count: 1 });
+			}
+		};
+		for (const r of rows) {
+			if (r.folder_id === sentId) {
+				add(r.recipient || "", r.date);
+				if (r.cc) add(r.cc, r.date);
+			} else add(r.sender || "", r.date);
+		}
+		const q = query.trim().toLowerCase();
+		return [...seen.values()]
+			.filter((c) => !q || c.address.includes(q) || c.name.toLowerCase().includes(q))
+			.slice(0, Math.min(Math.max(limit, 1), 50));
 	}
 
 	/**

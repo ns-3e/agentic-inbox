@@ -7,98 +7,204 @@ import type { Email } from "~/types";
 
 export type ComposeMode = "new" | "reply" | "reply-all" | "forward";
 
+/** A file attached in the composer (kept in memory until the message is sent). */
+export interface ComposeAttachment {
+	id: string;
+	file: File;
+}
+
+/** Everything typed into a composer, so it can be re-opened (undo send, pop out). */
+export interface ComposeSnapshot {
+	to: string[];
+	cc: string[];
+	bcc: string[];
+	showCcBcc: boolean;
+	subject: string;
+	body: string;
+	/** Quoted original, kept out of the editor behind the "•••" toggle. */
+	quoteHtml: string;
+	attachments: ComposeAttachment[];
+	draftId?: string;
+}
+
 export interface ComposeOptions {
 	mode: ComposeMode;
 	originalEmail?: Email | null;
 	/** When editing a draft, this holds the draft email to pre-fill the composer */
 	draftEmail?: Email | null;
+	/** Restore a composer exactly as it was (undo send, pop out of inline reply). */
+	snapshot?: ComposeSnapshot;
+	/** Desktop: show the reply inside the conversation instead of a floating window. */
+	inline?: boolean;
+	/** Mailbox the composer sends from (replies, drafts). New mail uses the From picker. */
+	mailboxId?: string;
 }
 
-interface UIState {
-	// Side panel state
+export type ReadingPane = "none" | "right";
+
+const PREFS_KEY = "inbox.ui.prefs";
+interface Prefs {
+	readingPane: ReadingPane;
+	isAgentPanelOpen: boolean;
+	sidebarCollapsed: boolean;
+}
+const DEFAULT_PREFS: Prefs = { readingPane: "none", isAgentPanelOpen: false, sidebarCollapsed: false };
+
+function savePrefs(p: Prefs) {
+	try {
+		localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+	} catch {
+		// Private mode / storage blocked: preferences just do not persist.
+	}
+}
+
+interface UIState extends Prefs {
+	// Reader
 	selectedEmailId: string | null;
-	isComposing: boolean;
-	_previousEmailId: string | null;
-	selectEmail: (id: string | null) => void;
-	startCompose: (options?: ComposeOptions) => void;
+	/** Mailbox of the open email (needed in the unified view). */
+	selectedMailboxId: string | null;
+	selectEmail: (id: string | null, mailboxId?: string | null) => void;
 	closePanel: () => void;
-	closeCompose: () => void;
 
-	// Compose options
+	// Composer
+	isComposing: boolean;
 	composeOptions: ComposeOptions;
+	/** Bumped on every startCompose so the composer re-initialises. */
+	composeKey: number;
+	composeMinimized: boolean;
+	composeFullscreen: boolean;
+	/** Draft id of the open composer (the reader hides that draft while it is edited). */
+	composeDraftId: string | null;
+	setComposeDraftId: (id: string | null) => void;
+	startCompose: (options?: ComposeOptions) => void;
+	closeCompose: () => void;
+	setComposeMinimized: (v: boolean) => void;
+	setComposeFullscreen: (v: boolean) => void;
 
-	// Mobile sidebar
+	// Bulk selection in the list (keys from rowKey())
+	checked: Set<string>;
+	setChecked: (keys: Iterable<string>) => void;
+	toggleChecked: (key: string) => void;
+	clearChecked: () => void;
+
+	// Mobile drawer
 	isSidebarOpen: boolean;
 	openSidebar: () => void;
 	closeSidebar: () => void;
 	toggleSidebar: () => void;
 
+	// Desktop preferences (persisted)
+	hydratePrefs: () => void;
+	setReadingPane: (p: ReadingPane) => void;
+	toggleSidebarCollapsed: () => void;
+
 	// Agent panel (desktop side panel) and full-screen sheet (phones/tablets)
-	isAgentPanelOpen: boolean;
 	toggleAgentPanel: () => void;
 	isMobileAgentOpen: boolean;
 	openMobileAgent: () => void;
 	closeMobileAgent: () => void;
-
-	// Legacy dialog support (kept for non-split views)
-	isComposeModalOpen: boolean;
-	openComposeModal: (options?: ComposeOptions) => void;
-	closeComposeModal: () => void;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
-	selectedEmailId: null,
-	isComposing: false,
-	_previousEmailId: null,
-	composeOptions: { mode: "new", originalEmail: null },
-	isComposeModalOpen: false,
-	isSidebarOpen: false,
-	isAgentPanelOpen: true,
-	isMobileAgentOpen: false,
+/** Stable key for a list row; the unified view needs the mailbox too. */
+export function rowKey(email: Pick<Email, "id" | "mailbox_id">): string {
+	return email.mailbox_id ? `${email.mailbox_id}:${email.id}` : email.id;
+}
 
-	selectEmail: (id) => set({ selectedEmailId: id, isComposing: false }),
+const EMPTY_COMPOSE: ComposeOptions = { mode: "new", originalEmail: null };
 
-	startCompose: (options) =>
-		set((state) => {
-			const mode = options?.mode || "new";
-			const isReplyOrForward = mode === "reply" || mode === "reply-all" || mode === "forward";
-			return {
+export const useUIStore = create<UIState>((set, get) => {
+	const prefs = (): Prefs => {
+		const s = get();
+		return { readingPane: s.readingPane, isAgentPanelOpen: s.isAgentPanelOpen, sidebarCollapsed: s.sidebarCollapsed };
+	};
+	const setPref = (patch: Partial<Prefs>) => {
+		set(patch);
+		savePrefs(prefs());
+	};
+
+	return {
+		...DEFAULT_PREFS,
+		selectedEmailId: null,
+		selectedMailboxId: null,
+		isComposing: false,
+		composeOptions: EMPTY_COMPOSE,
+		composeKey: 0,
+		composeMinimized: false,
+		composeFullscreen: false,
+		composeDraftId: null,
+		checked: new Set(),
+		isSidebarOpen: false,
+		isMobileAgentOpen: false,
+
+		selectEmail: (id, mailboxId) =>
+			set((s) => ({
+				selectedEmailId: id,
+				selectedMailboxId: id ? (mailboxId ?? s.selectedMailboxId) : null,
+				// An inline reply belongs to the conversation it was opened from.
+				...(s.isComposing && s.composeOptions.inline && id !== s.selectedEmailId
+					? { isComposing: false, composeOptions: EMPTY_COMPOSE }
+					: {}),
+			})),
+
+		closePanel: () =>
+			set((s) => ({
+				selectedEmailId: null,
+				selectedMailboxId: null,
+				...(s.isComposing && s.composeOptions.inline
+					? { isComposing: false, composeOptions: EMPTY_COMPOSE }
+					: {}),
+			})),
+
+		startCompose: (options) =>
+			set((s) => ({
 				isComposing: true,
-				_previousEmailId: state.selectedEmailId,
-				// Keep selectedEmailId when replying/forwarding so the thread stays visible
-				selectedEmailId: isReplyOrForward ? state.selectedEmailId : null,
-				composeOptions: options || { mode: "new", originalEmail: null },
+				composeOptions: options || EMPTY_COMPOSE,
+				composeDraftId: options?.snapshot?.draftId ?? options?.draftEmail?.id ?? null,
+				composeKey: s.composeKey + 1,
+				composeMinimized: false,
 				isSidebarOpen: false,
-			};
-		}),
+			})),
 
-	closePanel: () => set({ selectedEmailId: null, isComposing: false, _previousEmailId: null, composeOptions: { mode: "new" as const, originalEmail: null } }),
+		closeCompose: () =>
+			set({
+				isComposing: false,
+				composeOptions: EMPTY_COMPOSE,
+				composeDraftId: null,
+				composeMinimized: false,
+				composeFullscreen: false,
+			}),
 
-	closeCompose: () =>
-		set((state) => ({
-			isComposing: false,
-			selectedEmailId: state._previousEmailId,
-			_previousEmailId: null,
-			composeOptions: { mode: "new" as const, originalEmail: null },
-		})),
+		setComposeDraftId: (id) => set({ composeDraftId: id }),
+		setComposeMinimized: (v) => set({ composeMinimized: v, ...(v ? { composeFullscreen: false } : {}) }),
+		setComposeFullscreen: (v) => set({ composeFullscreen: v, ...(v ? { composeMinimized: false } : {}) }),
 
-	openSidebar: () => set({ isSidebarOpen: true }),
-	closeSidebar: () => set({ isSidebarOpen: false }),
-	toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen }),
+		setChecked: (keys) => set({ checked: new Set(keys) }),
+		toggleChecked: (key) =>
+			set((s) => {
+				const next = new Set(s.checked);
+				if (next.has(key)) next.delete(key);
+				else next.add(key);
+				return { checked: next };
+			}),
+		clearChecked: () => set((s) => (s.checked.size ? { checked: new Set() } : {})),
 
-	toggleAgentPanel: () => set({ isAgentPanelOpen: !get().isAgentPanelOpen }),
-	openMobileAgent: () => set({ isMobileAgentOpen: true, isSidebarOpen: false }),
-	closeMobileAgent: () => set({ isMobileAgentOpen: false }),
+		openSidebar: () => set({ isSidebarOpen: true }),
+		closeSidebar: () => set({ isSidebarOpen: false }),
+		toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen }),
 
-	openComposeModal: (options) =>
-		set({
-			composeOptions: options || { mode: "new", originalEmail: null },
-			isComposeModalOpen: true,
-		}),
+		hydratePrefs: () => {
+			try {
+				const raw = localStorage.getItem(PREFS_KEY);
+				if (raw) set({ ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<Prefs>) });
+			} catch {
+				// Ignore unreadable preferences.
+			}
+		},
+		setReadingPane: (readingPane) => setPref({ readingPane }),
+		toggleSidebarCollapsed: () => setPref({ sidebarCollapsed: !get().sidebarCollapsed }),
+		toggleAgentPanel: () => setPref({ isAgentPanelOpen: !get().isAgentPanelOpen }),
 
-	closeComposeModal: () =>
-		set({
-			isComposeModalOpen: false,
-			composeOptions: { mode: "new", originalEmail: null },
-		}),
-}));
+		openMobileAgent: () => set({ isMobileAgentOpen: true, isSidebarOpen: false }),
+		closeMobileAgent: () => set({ isMobileAgentOpen: false }),
+	};
+});

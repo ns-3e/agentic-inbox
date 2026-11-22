@@ -104,3 +104,39 @@ export function formatQuotedDate(dateStr: string | undefined): string {
 		hour12: true,
 	});
 }
+
+/**
+ * Gmail message header date: "Nov 19, 2026, 5:46 PM (3 days ago)".
+ * Today: "5:46 PM (2 hours ago)". The year is left out for this year.
+ */
+export function formatMessageDate(dateStr: string, now: Date = new Date()): string {
+	const date = safeParse(dateStr);
+	if (!date) return dateStr;
+	const sameDay = date.toDateString() === now.toDateString();
+	const abs = sameDay
+		? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+		: date.toLocaleString(undefined, {
+				month: "short",
+				day: "numeric",
+				...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+				hour: "numeric",
+				minute: "2-digit",
+			});
+	const rel = formatRelative(date, now);
+	return rel ? `${abs} (${rel})` : abs;
+}
+
+/** "5 minutes ago", "3 days ago"; empty for dates older than 30 days. */
+export function formatRelative(date: Date, now: Date = new Date()): string {
+	const s = Math.round((now.getTime() - date.getTime()) / 1000);
+	if (s < 0) return "";
+	if (s < 60) return "just now";
+	if (s < 3600) return plural(Math.floor(s / 60), "minute");
+	if (s < 86400) return plural(Math.floor(s / 3600), "hour");
+	if (s < 86400 * 30) return plural(Math.floor(s / 86400), "day");
+	return "";
+}
+
+function plural(n: number, unit: string) {
+	return `${n} ${unit}${n === 1 ? "" : "s"} ago`;
+}

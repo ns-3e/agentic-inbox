@@ -259,6 +259,30 @@ app.get("/api/v1/unified/search", async (c) => {
 	});
 });
 
+/** Recipient autocomplete across every mailbox. */
+app.get("/api/v1/unified/contacts", async (c) => {
+	const q = c.req.query("q") || "";
+	const mailboxes = await listMailboxes(c.env.BUCKET);
+	const results = await Promise.allSettled(
+		mailboxes.map(({ id }) => (c.env.MAILBOX.get(c.env.MAILBOX.idFromName(id)) as any).getContacts(q, 8)),
+	);
+	const merged = new Map<string, { address: string; name: string; date: string; count: number }>();
+	for (const r of results) {
+		if (r.status !== "fulfilled") continue;
+		for (const contact of r.value as { address: string; name: string; date: string; count: number }[]) {
+			const prev = merged.get(contact.address);
+			if (!prev || prev.date < contact.date) merged.set(contact.address, contact);
+		}
+	}
+	const own = new Set(mailboxes.map((m) => m.id.toLowerCase()));
+	return c.json(
+		[...merged.values()]
+			.filter((x) => !own.has(x.address))
+			.sort((a, b) => (a.date < b.date ? 1 : -1))
+			.slice(0, 8),
+	);
+});
+
 /** Per-mailbox folder unread counts, for the unified sidebar. */
 app.get("/api/v1/unified/summary", async (c) => {
 	const mailboxes = await listMailboxes(c.env.BUCKET);
@@ -479,6 +503,12 @@ app.delete("/api/v1/mailboxes/:mailboxId/burners/:address", async (c: AppContext
 });
 
 // -- Search ---------------------------------------------------------
+
+app.get("/api/v1/mailboxes/:mailboxId/contacts", async (c: AppContext) => {
+	const contacts = await (c.var.mailboxStub as any).getContacts(c.req.query("q") || "", 8);
+	const self = c.req.param("mailboxId")!.toLowerCase();
+	return c.json((contacts as { address: string }[]).filter((x) => x.address !== self));
+});
 
 app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
 	const searchOpts: Record<string, unknown> = {

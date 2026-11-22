@@ -4,11 +4,14 @@
 
 import DOMPurify from "dompurify";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { splitQuotedText } from "~/lib/quote";
 
 interface EmailIframeProps {
 	body: string;
 	/** When true, iframe auto-sizes to content height instead of filling parent */
 	autoSize?: boolean;
+	/** Hide quoted history behind a Gmail-style "•••" button (default true). */
+	trimQuote?: boolean;
 }
 
 /**
@@ -27,9 +30,12 @@ interface EmailIframeProps {
  * - A strict CSP meta tag blocks external resource loads inside the
  *   iframe as a defense-in-depth layer.
  */
-export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
+export default function EmailIframe({ body: fullBody, autoSize, trimQuote = true }: EmailIframeProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
-	const [height, setHeight] = useState(autoSize ? 100 : 0);
+	const [height, setHeight] = useState(autoSize ? 60 : 0);
+	const [showQuote, setShowQuote] = useState(false);
+	const split = useMemo(() => (trimQuote ? splitQuotedText(fullBody) : { body: fullBody, quote: "" }), [fullBody, trimQuote]);
+	const body = showQuote || !split.quote ? fullBody : split.body;
 
 	// Listen for height reports from the sandboxed iframe
 	const handleMessage = useCallback(
@@ -84,6 +90,9 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 				setTimeout(reportHeight, 50);
 				setTimeout(reportHeight, 150);
 				setTimeout(reportHeight, 400);
+				window.addEventListener("load", reportHeight);
+				if (window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
+				document.addEventListener("load", reportHeight, true);
 			<\/script>`
 			: "";
 
@@ -94,7 +103,8 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid: https:; script-src 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid: https: http:; script-src 'unsafe-inline';">
+<base target="_blank">
 <style>
 * { box-sizing: border-box; }
 html {
@@ -102,7 +112,7 @@ html {
 	color-scheme: light;
 }
 body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 	font-size: 14px;
 	line-height: 1.6;
 	color: #1a1a1a;
@@ -111,12 +121,13 @@ body {
 	margin: 0;
 	word-wrap: break-word;
 	overflow-wrap: break-word;
-	${autoSize ? "overflow: hidden;" : ""}
+	${autoSize ? "overflow-y: hidden; overflow-x: auto;" : ""}
 }
 [style*="position: fixed"], [style*="position:fixed"], [style*="position: absolute"], [style*="position:absolute"] {
 	position: relative !important;
 }
-a { color: #2563eb; }
+a { color: #0b57d0; }
+@media (prefers-color-scheme: dark) { html, body { border-radius: 8px; } body { padding: 12px 16px !important; } }
 img { max-width: 100%; height: auto; }
 blockquote {
 	border-left: 3px solid #d1d5db;
@@ -143,14 +154,27 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 	}, [body, autoSize]);
 
 	return (
-		<iframe
-			key={srcDoc}
-			ref={iframeRef}
-			srcDoc={srcDoc}
-			className="block w-full border-0"
-			style={autoSize ? { height: `${height}px` } : { height: "100%" }}
-			sandbox="allow-scripts allow-popups allow-top-navigation-by-user-activation"
-			title="Email content"
-		/>
+		<>
+			<iframe
+				key={srcDoc}
+				ref={iframeRef}
+				srcDoc={srcDoc}
+				className="block w-full border-0 rounded"
+				style={autoSize ? { height: `${height}px` } : { height: "100%" }}
+				sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+				title="Email content"
+			/>
+			{split.quote && (
+				<button
+					type="button"
+					onClick={() => setShowQuote((v) => !v)}
+					aria-label={showQuote ? "Hide trimmed content" : "Show trimmed content"}
+					title={showQuote ? "Hide trimmed content" : "Show trimmed content"}
+					className="mt-2 inline-flex items-center justify-center h-3.5 w-7 rounded-full bg-kumo-fill hover:bg-kumo-fill-hover border-0 cursor-pointer text-kumo-strong text-xs leading-none tracking-tighter"
+				>
+					•••
+				</button>
+			)}
+		</>
 	);
 }

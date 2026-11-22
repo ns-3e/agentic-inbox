@@ -22,6 +22,7 @@ import {
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
+import Snackbar from "~/components/Snackbar";
 import { ApiError } from "~/services/api";
 import "./index.css";
 
@@ -140,6 +141,7 @@ export default function App() {
 				<TooltipProvider>
 					<Toasty>
 						<Outlet />
+						<Snackbar />
 					</Toasty>
 				</TooltipProvider>
 			</LinkProvider>

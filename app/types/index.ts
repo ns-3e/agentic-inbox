@@ -51,6 +51,7 @@ export interface Email {
 	participants?: string;
 	needs_reply?: boolean;
 	has_draft?: boolean;
+	has_attachment?: boolean;
 	// Present only in the unified (all mailboxes) list
 	mailbox_id?: string;
 }
@@ -85,4 +86,11 @@ export interface MailboxSummary {
 	id: string;
 	email: string;
 	folders: Folder[];
+}
+
+export interface Contact {
+	address: string;
+	name: string;
+	date: string;
+	count: number;
 }

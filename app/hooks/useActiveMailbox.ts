@@ -17,6 +17,9 @@ export interface ActiveMailboxValue {
 	setMailboxId?: (id: string) => void;
 	/** Make this the mailbox the reader / reply / draft-edit acts on. */
 	focusMailbox?: (id: string) => void;
+	/** Unified view: mailbox a brand-new message is sent from (the From picker). */
+	composeFrom?: string;
+	setComposeFrom?: (id: string) => void;
 }
 
 export const ActiveMailboxContext = createContext<ActiveMailboxValue | null>(null);

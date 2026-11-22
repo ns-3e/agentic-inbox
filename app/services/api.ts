@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Burner, Email, Folder, Mailbox, MailboxSummary } from "~/types";
+import type { Burner, Contact, Email, Folder, Mailbox, MailboxSummary } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -148,11 +148,18 @@ const api = {
 			thread_id?: string;
 			draft_id?: string;
 		},
-	) => post<{ draft_id: string }>(`/api/v1/mailboxes/${mailboxId}/drafts`, draft),
+	) => post<{ id: string; draft_id?: string }>(`/api/v1/mailboxes/${mailboxId}/drafts`, draft),
 	replyToEmail: (mailboxId: string, emailId: string, email: unknown) =>
 		post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/reply`, email),
 	forwardEmail: (mailboxId: string, emailId: string, email: unknown) =>
 		post<void>(`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/forward`, email),
+
+	// Recipient autocomplete (one mailbox, or all mailboxes when no id)
+	getContacts: (mailboxId: string | undefined, q: string, opts?: { signal?: AbortSignal }) =>
+		get<Contact[]>(
+			mailboxId ? `/api/v1/mailboxes/${mailboxId}/contacts` : "/api/v1/unified/contacts",
+			{ params: { q }, signal: opts?.signal },
+		),
 
 	// Folders
 	listFolders: (mailboxId: string) =>

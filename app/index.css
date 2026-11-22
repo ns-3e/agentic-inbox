@@ -1,3 +1,4 @@
+@layer theme, base, components, utilities;
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "tailwindcss";
@@ -76,4 +77,210 @@ button,
 [role="button"],
 a {
   touch-action: manipulation;
+}
+
+/* ── Gmail-style theme ─────────────────────────────────────────────
+   Overrides Kumo's tokens (they use light-dark(), so dark mode follows
+   the OS) and adds a few mail-specific ones. */
+:root {
+  color-scheme: light dark;
+  --color-kumo-recessed: light-dark(#f6f8fc, #1b1b1f);
+  --color-kumo-base: light-dark(#ffffff, #202124);
+  --color-kumo-surface: light-dark(#ffffff, #202124);
+  --color-kumo-elevated: light-dark(#ffffff, #2d2e31);
+  --color-kumo-overlay: light-dark(#f1f3f4, #35363a);
+  --color-kumo-tint: light-dark(#f2f6fc, #2a2b2f);
+  --color-kumo-fill: light-dark(#e8eaed, #3c4043);
+  --color-kumo-fill-hover: light-dark(#dde1e6, #45484c);
+  --color-kumo-brand: light-dark(#0b57d0, #3d7be6);
+  --color-kumo-brand-hover: light-dark(#0842a0, #5590f0);
+  --color-kumo-line: light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.12));
+  --text-color-kumo-default: light-dark(#1f1f1f, #e3e3e3);
+  --text-color-kumo-strong: light-dark(#444746, #c4c7c5);
+  --text-color-kumo-subtle: light-dark(#5e5e5e, #9aa0a6);
+  --text-color-kumo-link: light-dark(#0b57d0, #a8c7fa);
+  --text-color-kumo-brand: light-dark(#0b57d0, #a8c7fa);
+  --text-color-kumo-inverse: #ffffff;
+
+  /* Mail-specific tokens */
+  --mail-selected: light-dark(#c2e7ff, #004a77);
+  --mail-row-read: light-dark(#f2f6fc, #1f2023);
+  --mail-row-unread: light-dark(#ffffff, #2a2b2f);
+  --mail-row-hover-shadow: light-dark(
+    inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px 0 rgb(60 64 67 / 0.3), 0 1px 3px 1px rgb(60 64 67 / 0.15)
+  );
+  --nav-active: light-dark(#d3e3fd, #004a77);
+  --nav-active-text: light-dark(#041e49, #d3e3fd);
+  --compose-pill: light-dark(#c2e7ff, #004a77);
+  --compose-pill-text: light-dark(#001d35, #c2e7ff);
+  --compose-header: light-dark(#f2f6fc, #35363a);
+  --snackbar-bg: light-dark(#323232, #e3e3e3);
+  --snackbar-text: light-dark(#f2f2f2, #1f1f1f);
+  --snackbar-action: light-dark(#a8c7fa, #0b57d0);
+  --chip-bg: light-dark(#f1f3f4, #35363a);
+  --chip-border: light-dark(#dadce0, #5f6368);
+}
+
+body {
+  font-family: "Google Sans Text", "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+@layer components {
+/* Rows in the conversation list */
+.mail-row {
+  background: var(--mail-row-read);
+}
+.mail-row[data-unread="true"] {
+  background: var(--mail-row-unread);
+}
+.mail-row[data-checked="true"],
+.mail-row[data-selected="true"] {
+  background: var(--mail-selected);
+}
+@media (hover: hover) {
+  .mail-row:hover {
+    box-shadow: var(--mail-row-hover-shadow);
+    z-index: 1;
+  }
+}
+
+/* Gmail-style left navigation pills */
+.nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 2rem;
+  padding: 0 0.75rem 0 1.625rem;
+  border-radius: 0 9999px 9999px 0;
+  font-size: 0.875rem;
+  color: var(--text-color-kumo-default);
+  text-decoration: none;
+  cursor: pointer;
+}
+.nav-pill:hover {
+  background: var(--color-kumo-fill);
+}
+.nav-pill.active,
+.nav-pill[aria-current="page"] {
+  background: var(--nav-active);
+  color: var(--nav-active-text);
+  font-weight: 700;
+}
+.nav-pill.collapsed {
+  justify-content: center;
+  padding: 0;
+  width: 3.5rem;
+  margin-left: 0.5rem;
+  border-radius: 9999px;
+}
+
+/* Plain icon button used across the mail chrome */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 0;
+  background: transparent;
+  color: var(--text-color-kumo-strong);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: rgb(128 128 128 / 0.14);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--color-kumo-brand);
+  outline-offset: -2px;
+}
+@media (max-width: 767px) {
+  .icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+/* Popup menu */
+.menu {
+  min-width: 12rem;
+  padding: 0.5rem 0;
+  border-radius: 0.5rem;
+  background: var(--color-kumo-elevated);
+  box-shadow: 0 2px 6px 2px rgb(60 64 67 / 0.15), 0 1px 2px 0 rgb(60 64 67 / 0.3);
+  z-index: 60;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text-color-kumo-default);
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--color-kumo-overlay);
+  outline: none;
+}
+@media (max-width: 767px) {
+  .menu-item {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
+}
+
+/* Composer body editor: borderless, Gmail spacing */
+.compose-editor .ProseMirror {
+  outline: none;
+  min-height: 10rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.compose-editor .ProseMirror p {
+  margin: 0;
+}
+@media (max-width: 767px) {
+  .compose-editor .ProseMirror {
+    min-height: 50vh;
+  }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 180ms ease-out;
+}
+@keyframes snackbar-in {
+  from { transform: translateY(1rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-snackbar {
+  animation: snackbar-in 160ms ease-out;
+}
+
+/* Gmail app: every row has the page background; unread is shown by bold text only. */
+@media (max-width: 767px) {
+  .mail-row,
+  .mail-row[data-unread="true"] {
+    background: var(--color-kumo-base);
+  }
+  .mail-row[data-checked="true"] {
+    background: var(--mail-selected);
+  }
+}
+
 }
