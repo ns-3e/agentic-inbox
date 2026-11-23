@@ -15,10 +15,20 @@ export function useBurners(mailboxId: string | undefined) {
 	});
 }
 
+/** Domains from the DOMAINS variable. Burners may use these or the mailbox's own domain. */
+export function useConfiguredDomains(): string[] {
+	const { data } = useQuery({
+		queryKey: queryKeys.config,
+		queryFn: () => api.getConfig(),
+		staleTime: Infinity,
+	});
+	return data?.domains ?? [];
+}
+
 export function useCreateBurner(mailboxId: string | undefined) {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: (data: { label?: string; localPart?: string }) => api.createBurner(mailboxId!, data),
+		mutationFn: (data: { label?: string; localPart?: string; domain?: string }) => api.createBurner(mailboxId!, data),
 		onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.burners.list(mailboxId!) }),
 	});
 }

@@ -6,6 +6,7 @@ import {
 	CaretRightIcon,
 	CaretUpDownIcon,
 	CheckIcon,
+	FireIcon,
 	FunnelIcon,
 	GearSixIcon,
 	KeyboardIcon,
@@ -24,7 +25,9 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import Avatar from "~/components/Avatar";
 import { mailboxHue } from "~/components/EmailListRow";
 import Menu from "~/components/Menu";
+import NewBurnerDialog from "~/components/NewBurnerDialog";
 import { NAV_FOLDERS, useActiveNav } from "~/components/NavItems";
+import { useActiveMailbox } from "~/hooks/useActiveMailbox";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useUIStore } from "~/hooks/useUIStore";
 import { useMailboxes } from "~/queries/mailboxes";
@@ -139,6 +142,10 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 	const searchPath = isUnified ? "/all/search" : `/mailbox/${mailboxId}/search`;
 	const inboxPath = isUnified ? "/all/inbox" : `/mailbox/${mailboxId}/emails/inbox`;
 	const searchBoxRef = useRef<HTMLDivElement>(null);
+	const [burnerOpen, setBurnerOpen] = useState(false);
+	const { composeFrom } = useActiveMailbox();
+	const mailboxIds = mailboxes.map((m) => m.id);
+	const burnerMailbox = mailboxId ?? (composeFrom && mailboxIds.includes(composeFrom) ? composeFrom : mailboxIds[0]);
 
 	// Keep the box in sync with the URL (?q=), except for the Starred view.
 	const urlQuery = searchParams.get("q") || "";
@@ -297,6 +304,16 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 			<div className="hidden md:flex items-center gap-1 shrink-0 pl-2">
 				<button
 					type="button"
+					className="btn btn-ghost"
+					onClick={() => setBurnerOpen(true)}
+					aria-label="New burner address"
+					title="New burner address"
+				>
+					<FireIcon size={16} />
+					<span className="hidden lg:inline">New burner</span>
+				</button>
+				<button
+					type="button"
 					className={`btn ${isAgentPanelOpen && isLg ? "!border-[var(--ops-agent)] !text-[var(--ops-agent)] !bg-[var(--ops-agent-tint)]" : "btn-ghost"}`}
 					onClick={handleAgentClick}
 					aria-label={isAgentPanelOpen && isLg ? "Hide agent console" : "Show agent console"}
@@ -324,6 +341,13 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 					)}
 				/>
 			</div>
+			<NewBurnerDialog
+				open={burnerOpen}
+				onOpenChange={setBurnerOpen}
+				mailboxId={burnerMailbox}
+				mailboxes={isUnified ? mailboxIds : undefined}
+				manageHref={isUnified ? (burnerMailbox ? `/all/burners?mb=${encodeURIComponent(burnerMailbox)}` : "/all/burners") : `/mailbox/${mailboxId}/burners`}
+			/>
 		</header>
 	);
 }

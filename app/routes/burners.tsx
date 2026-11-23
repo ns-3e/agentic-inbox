@@ -3,11 +3,12 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Button, Dialog, Loader, Switch, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
-import { CopyIcon, FireIcon, MagnifyingGlassIcon, ShuffleIcon, TrashIcon } from "@phosphor-icons/react";
+import { CopyIcon, FireIcon, MagnifyingGlassIcon, TrashIcon } from "@phosphor-icons/react";
 import { type ReactNode, useState } from "react";
 import { useParams } from "react-router";
 import { formatListDate } from "shared/dates";
-import { useBurners, useCreateBurner, useDeleteBurner, useUpdateBurner } from "~/queries/burners";
+import BurnerCreateForm from "~/components/BurnerCreateForm";
+import { useBurners, useDeleteBurner, useUpdateBurner } from "~/queries/burners";
 import type { Burner } from "~/types";
 
 async function copy(text: string): Promise<boolean> {
@@ -32,30 +33,10 @@ export default function BurnersRoute() {
 export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picker?: ReactNode }) {
 	const toast = useKumoToastManager();
 	const { data: burners, isLoading } = useBurners(mailboxId);
-	const createMutation = useCreateBurner(mailboxId);
 	const updateMutation = useUpdateBurner(mailboxId);
 	const deleteMutation = useDeleteBurner(mailboxId);
 
-	const [label, setLabel] = useState("");
-	const [localPart, setLocalPart] = useState("");
 	const [pendingDelete, setPendingDelete] = useState<Burner | null>(null);
-	const domain = mailboxId?.split("@")[1] ?? "";
-
-	const handleCreate = async (e: React.FormEvent) => {
-		e.preventDefault();
-		try {
-			const burner = await createMutation.mutateAsync({
-				label: label.trim() || undefined,
-				localPart: localPart.trim() || undefined,
-			});
-			setLabel("");
-			setLocalPart("");
-			const copied = await copy(burner.address);
-			toast.add({ title: copied ? `Copied ${burner.address}` : `Created ${burner.address}` });
-		} catch (err) {
-			toast.add({ title: (err as Error).message || "Could not create burner", variant: "error" });
-		}
-	};
 
 	const handleToggle = (burner: Burner, enabled: boolean) => {
 		updateMutation.mutate(
@@ -116,32 +97,9 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 
 			<div className="flex-1 min-h-0 overflow-y-auto">
 				{/* Create */}
-				<form onSubmit={handleCreate} className="flex flex-col md:flex-row md:items-end gap-3 px-5 py-4 border-b border-kumo-line bg-kumo-tint">
-					<label className="flex-1 min-w-0">
-						<span className="field-label">Purpose</span>
-						<input className="field" placeholder="e.g. Shoe store sign-up" value={label} onChange={(e) => setLabel(e.target.value)} />
-					</label>
-					<label className="flex-1 min-w-0">
-						<span className="field-label">Address (optional)</span>
-						<div className="flex items-center rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand overflow-hidden">
-							<input
-								className="flex-1 min-w-0 h-8 px-2.5 bg-transparent border-0 outline-none ops-mono text-[13px] text-kumo-default placeholder:text-kumo-subtle placeholder:font-sans"
-								placeholder="random"
-								value={localPart}
-								onChange={(e) => setLocalPart(e.target.value)}
-								autoCapitalize="off"
-								autoCorrect="off"
-								spellCheck={false}
-								aria-label="Local part of the address"
-							/>
-							<span className="ops-mono text-[12px] text-kumo-subtle pr-2.5 shrink-0">@{domain}</span>
-						</div>
-					</label>
-					<button type="submit" className="btn btn-primary md:w-auto" disabled={createMutation.isPending}>
-						{localPart.trim() ? <FireIcon size={14} weight="bold" /> : <ShuffleIcon size={14} weight="bold" />}
-						{createMutation.isPending ? "Creating…" : localPart.trim() ? "Create burner" : "Generate burner"}
-					</button>
-				</form>
+				<div className="px-5 py-4 border-b border-kumo-line bg-kumo-tint">
+					<BurnerCreateForm mailboxId={mailboxId} />
+				</div>
 
 				{/* Filters */}
 				{all.length > 0 && (

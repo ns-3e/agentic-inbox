@@ -494,9 +494,13 @@ function createBurnerTools(env: Env, resolve: (mailbox?: string) => string, unif
 					.max(64)
 					.optional()
 					.describe("Optional custom name before the @ (letters, numbers, dots, dashes, underscores)"),
+				domain: z
+					.string()
+					.optional()
+					.describe("Optional domain after the @. Must be the mailbox's domain or a configured domain. Omit for the mailbox's domain."),
 			}),
-			execute: async ({ mailbox, label, localPart }: { mailbox?: string; label?: string; localPart?: string }): Promise<unknown> =>
-				toolCreateBurner(env, resolve(mailbox), { label, localPart }),
+			execute: async ({ mailbox, label, localPart, domain }: { mailbox?: string; label?: string; localPart?: string; domain?: string }): Promise<unknown> =>
+				toolCreateBurner(env, resolve(mailbox), { label, localPart, domain }),
 		}),
 		draft_email: defineTool({
 			description:

@@ -180,7 +180,7 @@ const api = {
 	// Burner addresses
 	listBurners: (mailboxId: string) =>
 		get<Burner[]>(`/api/v1/mailboxes/${mailboxId}/burners`),
-	createBurner: (mailboxId: string, data: { label?: string; localPart?: string }) =>
+	createBurner: (mailboxId: string, data: { label?: string; localPart?: string; domain?: string }) =>
 		post<Burner>(`/api/v1/mailboxes/${mailboxId}/burners`, data),
 	updateBurner: (mailboxId: string, address: string, data: { enabled?: boolean; label?: string }) =>
 		patch<Burner>(`/api/v1/mailboxes/${mailboxId}/burners/${encodeURIComponent(address)}`, data),

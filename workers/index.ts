@@ -22,6 +22,7 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import {
 	BurnerError,
+	configuredDomains,
 	createBurner,
 	deleteBurner,
 	getBurner,
@@ -98,8 +99,7 @@ app.use("/api/v1/mailboxes/:mailboxId/*", requireMailbox);
 // -- Config ---------------------------------------------------------
 
 app.get("/api/v1/config", (c) => {
-	const domainsRaw = c.env.DOMAINS || "";
-	const domains = domainsRaw.split(",").map((d) => d.trim()).filter(Boolean);
+	const domains = configuredDomains(c.env.DOMAINS);
 	const emailAddresses = c.env.EMAIL_ADDRESSES ?? [];
 	return c.json({ domains, emailAddresses });
 });
@@ -481,6 +481,7 @@ app.put("/api/v1/catchall/:domain", async (c) => {
 const CreateBurnerBody = z.object({
 	label: z.string().max(100).optional(),
 	localPart: z.string().max(64).optional(),
+	domain: z.string().max(253).optional(),
 });
 
 const UpdateBurnerBody = z.object({
@@ -497,7 +498,7 @@ app.post("/api/v1/mailboxes/:mailboxId/burners", async (c: AppContext) => {
 	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
 	const body = CreateBurnerBody.parse(await c.req.json().catch(() => ({})));
 	try {
-		return c.json(await createBurner(c.env.BUCKET, mailboxId, body), 201);
+		return c.json(await createBurner(c.env.BUCKET, mailboxId, body, configuredDomains(c.env.DOMAINS)), 201);
 	} catch (e) {
 		if (e instanceof BurnerError) return c.json({ error: e.message }, e.status);
 		throw e;

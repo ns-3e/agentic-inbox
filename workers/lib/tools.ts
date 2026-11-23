@@ -30,7 +30,7 @@ import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
-import { BurnerError, createBurner, findThreadBurner, getBurner, listBurners, putBurner } from "./burners";
+import { BurnerError, configuredDomains, createBurner, findThreadBurner, getBurner, listBurners, putBurner } from "./burners";
 
 // ── Type casts for DO methods not on the base stub type ────────────
 type MailboxSearchStub = {
@@ -590,10 +590,10 @@ export async function toolListBurners(env: Env, mailboxId: string) {
 export async function toolCreateBurner(
 	env: Env,
 	mailboxId: string,
-	params: { label?: string; localPart?: string },
+	params: { label?: string; localPart?: string; domain?: string },
 ) {
 	try {
-		const burner = await createBurner(env.BUCKET, mailboxId, params);
+		const burner = await createBurner(env.BUCKET, mailboxId, params, configuredDomains(env.DOMAINS));
 		return { burner, note: `Mail to ${burner.address} is delivered to ${mailboxId}'s Inbox.` };
 	} catch (e) {
 		if (e instanceof BurnerError) return { error: e.message };

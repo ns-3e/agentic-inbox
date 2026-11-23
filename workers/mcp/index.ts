@@ -460,7 +460,7 @@ export class EmailMCP extends McpAgent<Env> {
 		// ── create_burner ──────────────────────────────────────────
 		this.server.tool(
 			"create_burner",
-			"Create a burner (throwaway) address on the mailbox's domain. Mail to it is delivered to the mailbox's Inbox. Use it for sign-ups, trials, and other one-off sites. Omit localPart for a random name.",
+			"Create a burner (throwaway) address on the mailbox's domain or another configured domain. Mail to it is delivered to the mailbox's Inbox. Use it for sign-ups, trials, and other one-off sites. Omit localPart for a random name.",
 			{
 				mailboxId: z.string().describe("The mailbox that receives the burner's mail"),
 				label: z
@@ -473,11 +473,15 @@ export class EmailMCP extends McpAgent<Env> {
 					.max(64)
 					.optional()
 					.describe("Optional custom name before the @ (letters, numbers, dots, dashes, underscores)"),
+				domain: z
+					.string()
+					.optional()
+					.describe("Optional domain after the @. Must be the mailbox's domain or a configured domain. Omit for the mailbox's domain."),
 			},
-			async ({ mailboxId, label, localPart }) => {
+			async ({ mailboxId, label, localPart, domain }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
-				return mcpResult(await toolCreateBurner(env, mailboxId, { label, localPart }));
+				return mcpResult(await toolCreateBurner(env, mailboxId, { label, localPart, domain }));
 			},
 		);
 

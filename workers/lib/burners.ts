@@ -25,31 +25,15 @@ export interface Burner {
 	lastReceivedAt: string | null;
 }
 
+import { burnerDomains, LOCAL_PART_HINT, LOCAL_PART_RE, randomLocalPart } from "../../shared/burners";
+
 const PREFIX = "burners/";
 const keyFor = (address: string) => `${PREFIX}${address.toLowerCase()}.json`;
 
-const ADJECTIVES = [
-	"amber", "brisk", "calm", "dusty", "eager", "faint", "gentle", "hollow", "icy", "jolly",
-	"keen", "lunar", "misty", "noble", "olive", "plain", "quiet", "rapid", "rusty", "silent",
-	"sunny", "tidy", "urban", "vivid", "windy", "young", "zesty", "bold", "coral", "frosty",
-];
-const NOUNS = [
-	"otter", "maple", "harbor", "falcon", "pebble", "comet", "meadow", "lantern", "badger", "cedar",
-	"ember", "fjord", "gecko", "heron", "island", "juniper", "kettle", "lagoon", "marble", "nectar",
-	"orchid", "parrot", "quartz", "raven", "spruce", "tundra", "walrus", "willow", "yarrow", "zephyr",
-];
-
-function pick<T>(list: T[]): T {
-	return list[crypto.getRandomValues(new Uint32Array(1))[0] % list.length];
+/** The DOMAINS variable as a list. */
+export function configuredDomains(raw: string | undefined): string[] {
+	return (raw || "").split(",").map((d) => d.trim()).filter(Boolean);
 }
-
-function randomLocalPart(): string {
-	const digits = (crypto.getRandomValues(new Uint32Array(1))[0] % 9000) + 1000;
-	return `${pick(ADJECTIVES)}-${pick(NOUNS)}-${digits}`;
-}
-
-/** Local parts are limited to a conservative, URL-safe character set. */
-export const LOCAL_PART_RE = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/;
 
 export async function getBurner(bucket: R2Bucket, address: string): Promise<Burner | null> {
 	const obj = await bucket.get(keyFor(address));
@@ -106,23 +90,27 @@ export class BurnerError extends Error {
 }
 
 /**
- * Create a burner on the parent mailbox's domain. Uses `localPart` when given,
- * otherwise generates a random `adjective-noun-1234` name.
+ * Create a burner. It uses `domain` when given (the mailbox's own domain or
+ * one of `configuredDomains`), otherwise the mailbox's domain. It uses
+ * `localPart` when given, otherwise a random `adjective-noun-1234` name.
  */
 export async function createBurner(
 	bucket: R2Bucket,
 	mailboxId: string,
-	opts: { label?: string; localPart?: string },
+	opts: { label?: string; localPart?: string; domain?: string },
+	configuredDomains: string[] = [],
 ): Promise<Burner> {
-	const domain = mailboxId.split("@")[1];
+	const allowed = burnerDomains(mailboxId, configuredDomains);
+	const domain = opts.domain?.trim().toLowerCase() || mailboxId.split("@")[1]?.toLowerCase();
 	if (!domain) throw new BurnerError("Mailbox has no domain", 400);
+	if (!allowed.includes(domain)) {
+		throw new BurnerError(`Domain ${domain} is not available. Use one of: ${allowed.join(", ")}`, 400);
+	}
 
 	let address: string | undefined;
-	if (opts.localPart) {
+	if (opts.localPart?.trim()) {
 		const local = opts.localPart.trim().toLowerCase();
-		if (!LOCAL_PART_RE.test(local)) {
-			throw new BurnerError("Use only letters, numbers, dots, dashes and underscores", 400);
-		}
+		if (!LOCAL_PART_RE.test(local)) throw new BurnerError(LOCAL_PART_HINT, 400);
 		address = `${local}@${domain}`;
 		if (await addressTaken(bucket, address)) throw new BurnerError("That address is already in use", 409);
 	} else {
@@ -185,7 +173,7 @@ export async function findThreadBurner(
 ): Promise<Burner | null> {
 	const self = mailboxId.toLowerCase();
 	const candidates = addressesIn(email.recipient, email.cc, email.sender)
-		.filter((a) => a !== self && a.endsWith(`@${self.split("@")[1]}`))
+		.filter((a) => a !== self)
 		.slice(0, 10);
 	for (const address of candidates) {
 		const burner = await getBurner(bucket, address);
