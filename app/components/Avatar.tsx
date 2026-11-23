@@ -13,7 +13,7 @@ export function avatarHue(seed: string): number {
 	return AVATAR_HUES[Math.abs(h) % AVATAR_HUES.length];
 }
 
-/** Round colored avatar with the sender's initial (Gmail style). */
+/** Round avatar with the sender's initial: people are circles, addresses are dots. */
 export default function Avatar({
 	sender,
 	size = 40,
@@ -32,12 +32,12 @@ export default function Avatar({
 	return (
 		<div
 			aria-hidden
-			className={`shrink-0 rounded-full flex items-center justify-center font-medium text-white select-none ${className}`}
+			className={`shrink-0 rounded-full flex items-center justify-center font-semibold text-white select-none ${className}`}
 			style={{
 				width: size,
 				height: size,
 				fontSize: Math.round(size * 0.45),
-				backgroundColor: checked ? "var(--color-kumo-brand)" : `hsl(${avatarHue(seed)} 50% 45%)`,
+				backgroundColor: checked ? "var(--color-kumo-brand)" : `hsl(${avatarHue(seed)} 38% 42%)`,
 				color: checked ? "var(--text-color-kumo-inverse)" : "#fff",
 			}}
 		>

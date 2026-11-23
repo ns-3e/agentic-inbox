@@ -267,7 +267,7 @@ function ComposerBody({
 
 			<div className={`flex-1 min-h-0 overflow-y-auto ${variant === "inline" ? "" : "px-4"}`}>
 				{form.error && (
-					<div role="alert" className="mt-2 mb-1 rounded-md bg-[#fce8e6] dark:bg-[#5c2b29] text-[#c5221f] dark:text-[#f28b82] text-sm px-3 py-2">
+					<div role="alert" className="mt-2 mb-1 rounded-md bg-[#fce8e6] dark:bg-[#5c2b29] text-[var(--ops-bad)] text-sm px-3 py-2">
 						{form.error}
 					</div>
 				)}
@@ -360,12 +360,12 @@ function ComposerBody({
 						</div>
 					)}
 					<div className="relative flex items-center gap-1">
-						<div className="flex items-center rounded-full bg-kumo-brand text-kumo-inverse overflow-hidden">
+						<div className="flex items-center rounded-md bg-kumo-brand text-kumo-inverse overflow-hidden">
 							<button
 								type="button"
 								onClick={() => void form.send()}
 								disabled={form.isSending}
-								className="h-9 pl-6 pr-5 border-0 bg-transparent text-inherit text-sm font-medium cursor-pointer hover:bg-black/10 disabled:opacity-60"
+								className="h-8 px-4 border-0 bg-transparent text-inherit text-[13px] font-semibold cursor-pointer hover:bg-black/10 disabled:opacity-60"
 								title="Send (⌘/Ctrl+Enter)"
 							>
 								{form.isSending ? "Sending…" : "Send"}
@@ -478,7 +478,7 @@ function ComposeWindow() {
 		<div
 			role="dialog"
 			aria-label={title}
-			className={`flex flex-col bg-kumo-elevated rounded-t-lg shadow-[0_8px_10px_1px_rgba(0,0,0,0.14),0_3px_14px_2px_rgba(0,0,0,0.12),0_5px_5px_-3px_rgba(0,0,0,0.2)] overflow-hidden ${
+			className={`flex flex-col bg-kumo-elevated rounded-t-lg border border-kumo-line shadow-[0_16px_40px_-12px_rgb(15_20_26/0.35),0_4px_12px_-4px_rgb(15_20_26/0.2)] overflow-hidden ${
 				composeFullscreen
 					? "w-[min(1100px,92vw)] h-[88vh] rounded-lg"
 					: composeMinimized
@@ -561,7 +561,7 @@ function InlineComposerInner() {
 	}, []);
 	if (!form.initialised) return null;
 	return (
-		<div ref={ref} className="rounded-lg shadow-[0_1px_2px_0_rgba(60,64,67,0.3),0_2px_6px_2px_rgba(60,64,67,0.15)] bg-kumo-elevated px-4 pt-2 pb-3 min-h-[260px] flex flex-col">
+		<div ref={ref} className="rounded-lg shadow-[0_8px_24px_-6px_rgb(15_20_26/0.18)] border border-kumo-line bg-kumo-elevated px-4 pt-2 pb-3 min-h-[260px] flex flex-col">
 			<ComposerBody
 				key={composeKey}
 				form={form}

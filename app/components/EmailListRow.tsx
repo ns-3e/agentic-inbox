@@ -47,6 +47,18 @@ export function setMailboxOrder(ids: string[]) {
 	mailboxOrder = new Map([...ids].sort().map((id, i) => [id, i]));
 }
 
+/**
+ * Short label for a mailbox: the local part ("alice"), or the domain
+ * ("advsys.io") when several mailboxes share that local part.
+ */
+export function mailboxShortName(mailboxId: string): string {
+	const [local, domain] = mailboxId.split("@");
+	if (!domain) return mailboxId;
+	let same = 0;
+	for (const id of mailboxOrder.keys()) if (id.split("@")[0] === local) same++;
+	return same > 1 ? domain : local;
+}
+
 export function mailboxHue(mailboxId: string): number {
 	let idx = mailboxOrder.get(mailboxId);
 	if (idx === undefined) {
@@ -60,20 +72,14 @@ export function mailboxHue(mailboxId: string): number {
 export function MailboxLabel({ mailboxId, full }: { mailboxId: string; full?: boolean }) {
 	const hue = mailboxHue(mailboxId);
 	return (
-		<span
-			title={mailboxId}
-			className="shrink-0 max-w-[11rem] truncate rounded px-1.5 py-px text-xs font-medium"
-			style={{
-				color: `light-dark(hsl(${hue} 60% 32%), hsl(${hue} 70% 78%))`,
-				backgroundColor: `light-dark(hsl(${hue} 70% 93%), hsl(${hue} 40% 22%))`,
-			}}
-		>
-			{full ? mailboxId : mailboxId.split("@")[0]}
+		<span title={mailboxId} className="shrink-0 inline-flex items-center gap-1.5 max-w-[11rem] min-w-0 text-xs text-kumo-strong">
+			<span className="dot" style={{ backgroundColor: `hsl(${hue} 60% 48%)` }} />
+			<span className="ops-mono truncate">{full ? mailboxId : mailboxShortName(mailboxId)}</span>
 		</span>
 	);
 }
 
-/** A swipe gesture on touch screens (Gmail-style). */
+/** A swipe gesture on touch screens. */
 export interface SwipeAction {
 	label: string;
 	icon: React.ReactNode;
@@ -211,7 +217,7 @@ function HoverAction({ label, icon, onClick }: { label: string; icon: React.Reac
 			type="button"
 			title={label}
 			aria-label={label}
-			className="icon-btn !w-9 !h-9"
+			className="icon-btn !w-7 !h-7"
 			onClick={(e) => {
 				e.stopPropagation();
 				onClick();
@@ -269,7 +275,7 @@ function EmailListRow({
 	const star = (
 		<button
 			type="button"
-			className="shrink-0 flex items-center justify-center h-8 w-8 -m-1 rounded-full bg-transparent border-0 cursor-pointer hover:bg-black/5 dark:hover:bg-white/10"
+			className="shrink-0 flex items-center justify-center h-7 w-7 -m-0.5 rounded-md bg-transparent border-0 cursor-pointer hover:bg-kumo-fill"
 			aria-label={email.starred ? "Starred" : "Not starred"}
 			aria-pressed={email.starred}
 			title={email.starred ? "Starred" : "Not starred"}
@@ -279,33 +285,43 @@ function EmailListRow({
 			}}
 		>
 			<StarIcon
-				size={19}
+				size={16}
 				weight={email.starred ? "fill" : "regular"}
-				className={email.starred ? "text-[#f4b400]" : "text-kumo-subtle"}
+				className={email.starred ? "text-[var(--ops-star)]" : "text-kumo-subtle opacity-60 group-hover:opacity-100"}
 			/>
 		</button>
 	);
 
 	const senderLabel = (
 		<>
-			{isDraftRow && <span className="shrink-0 text-[#c5221f] dark:text-[#f28b82] font-normal">Draft</span>}
+			{isDraftRow && <span className="chip chip-bad shrink-0">Draft</span>}
 			<span className="truncate">{highlight(people)}</span>
-			{count > 1 && <span className="shrink-0 text-xs font-normal text-kumo-subtle">{count}</span>}
-			{email.has_draft && !isDraftRow && <span className="shrink-0 text-[#c5221f] dark:text-[#f28b82] font-normal">Draft</span>}
+			{count > 1 && <span className="shrink-0 ops-mono text-[11px] font-normal text-kumo-subtle">{count}</span>}
+			{email.has_draft && !isDraftRow && <span className="chip chip-bad shrink-0">Draft</span>}
 		</>
+	);
+
+	const awaitingReply = !!email.needs_reply && !unread && !isDraftRow && email.folder_id !== "sent";
+	const status = awaitingReply ? (
+		<span className="chip chip-warn shrink-0" title="You read this conversation and it has no reply yet">
+			Awaiting reply
+		</span>
+	) : null;
+	const unreadMark = (
+		<span aria-hidden className={`dot shrink-0 ${unread ? "bg-kumo-brand" : "bg-transparent"}`} />
 	);
 
 	const hoverActions = (
 		<div className="hidden md:group-hover:flex items-center gap-0.5 shrink-0 -my-1">
 			{onUnarchive ? (
-				<HoverAction label="Move to Inbox" icon={<TrayIcon size={18} />} onClick={() => onUnarchive(email)} />
+				<HoverAction label="Move to Inbox" icon={<TrayIcon size={16} />} onClick={() => onUnarchive(email)} />
 			) : (
-				onArchive && <HoverAction label="Archive" icon={<ArchiveIcon size={18} />} onClick={() => onArchive(email)} />
+				onArchive && <HoverAction label="Archive" icon={<ArchiveIcon size={16} />} onClick={() => onArchive(email)} />
 			)}
-			<HoverAction label="Delete" icon={<TrashIcon size={18} />} onClick={() => onDelete(email)} />
+			<HoverAction label="Delete" icon={<TrashIcon size={16} />} onClick={() => onDelete(email)} />
 			<HoverAction
 				label={unread ? "Mark as read" : "Mark as unread"}
-				icon={unread ? <EnvelopeOpenIcon size={18} /> : <EnvelopeSimpleIcon size={18} />}
+				icon={unread ? <EnvelopeOpenIcon size={16} /> : <EnvelopeSimpleIcon size={16} />}
 				onClick={() => onToggleRead(email)}
 			/>
 		</div>
@@ -313,7 +329,7 @@ function EmailListRow({
 
 	const checkbox = (
 		<label
-			className="shrink-0 flex items-center justify-center h-8 w-8 -m-1 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/10"
+			className="shrink-0 flex items-center justify-center h-7 w-7 -m-0.5 rounded-md cursor-pointer hover:bg-kumo-fill"
 			onClick={(e) => e.stopPropagation()}
 		>
 			<input
@@ -358,8 +374,8 @@ function EmailListRow({
 					transition: animating ? "transform 180ms ease-out" : undefined,
 					touchAction: "pan-y",
 				}}
-				className={`mail-row group relative w-full text-left cursor-pointer select-none md:select-auto md:border-b md:border-kumo-line ${
-					isFocused ? "md:before:absolute md:before:left-0 md:before:inset-y-0 md:before:w-[3px] md:before:bg-kumo-brand md:before:content-['']" : ""
+				className={`mail-row group relative w-full text-left cursor-pointer select-none md:select-auto ${
+					isFocused ? "md:outline md:outline-2 md:-outline-offset-2 md:outline-[var(--color-kumo-ring)]" : ""
 				}`}
 			>
 				{/* ── Phone layout: avatar + three lines (Gmail app) ── */}
@@ -377,15 +393,15 @@ function EmailListRow({
 					</button>
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-1.5">
-							<span className={`flex items-center gap-1.5 min-w-0 text-base ${unread ? "font-bold text-kumo-default" : "text-kumo-strong"}`}>
+							<span className={`flex items-center gap-1.5 min-w-0 text-[15px] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
 								{senderLabel}
 							</span>
-							<span className={`ml-auto shrink-0 text-xs ${unread ? "font-bold text-kumo-default" : "text-kumo-subtle"}`}>
+							<span className={`ml-auto shrink-0 ops-mono tabular text-[11px] ${unread ? "font-semibold text-kumo-brand" : "text-kumo-subtle"}`}>
 								{formatListDate(email.date)}
 							</span>
 						</div>
 						<div className="flex items-center gap-1.5 mt-px">
-							<span className={`truncate text-sm flex-1 min-w-0 ${unread ? "font-bold text-kumo-default" : "text-kumo-strong"}`}>
+							<span className={`truncate text-sm flex-1 min-w-0 ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
 								{highlight(subject)}
 							</span>
 							{email.has_attachment && <PaperclipIcon size={15} className="shrink-0 text-kumo-subtle" />}
@@ -400,50 +416,56 @@ function EmailListRow({
 
 				{/* ── Desktop, narrow list next to the reading pane: two lines ── */}
 				{compact && (
-					<div className="hidden md:flex items-start gap-3 pl-3 pr-4 py-2.5">
-						<div className="flex flex-col items-center gap-2 pt-0.5">
+					<div className="hidden md:flex items-start gap-2.5 pl-2 pr-3 py-2 border-b border-kumo-line">
+						<div className="flex flex-col items-center gap-1 pt-px">
 							{checkbox}
 							{star}
 						</div>
 						<div className="min-w-0 flex-1">
-							<div className={`flex items-center gap-2 text-sm ${unread ? "font-bold text-kumo-default" : "text-kumo-strong"}`}>
+							<div className={`flex items-center gap-2 text-[13px] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
+								{unreadMark}
 								<span className="flex items-center gap-1.5 min-w-0">{senderLabel}</span>
-								<span className="ml-auto shrink-0 text-xs group-hover:hidden">{formatListDate(email.date)}</span>
+								<span className={`ml-auto shrink-0 ops-mono tabular text-[11px] group-hover:hidden ${unread ? "text-kumo-default" : "text-kumo-subtle"}`}>{formatListDate(email.date)}</span>
 								{hoverActions}
 							</div>
-							<div className={`truncate text-sm mt-0.5 ${unread ? "font-bold text-kumo-default" : "text-kumo-strong"}`}>
+							<div className={`truncate text-[13px] mt-0.5 pl-4 ${unread ? "font-semibold text-kumo-default" : "text-kumo-default"}`}>
 								{highlight(subject)}
 							</div>
-							<div className="flex items-center gap-2 mt-0.5">
+							<div className="flex items-center gap-2 mt-0.5 pl-4">
 								{mailboxId && <MailboxLabel mailboxId={mailboxId} />}
-								<span className="truncate text-sm text-kumo-subtle">{highlight(snippet)}</span>
-								{email.has_attachment && <PaperclipIcon size={14} className="shrink-0 text-kumo-subtle" />}
+								<span className="truncate text-xs text-kumo-subtle flex-1 min-w-0">{highlight(snippet)}</span>
+								{status}
+								{email.has_attachment && <PaperclipIcon size={13} className="shrink-0 text-kumo-subtle" />}
 							</div>
 						</div>
 					</div>
 				)}
 
-				{/* ── Desktop, full-width list: one line (Gmail web) ── */}
+				{/* ── Desktop, full-width list: one grid row per conversation ── */}
 				{!compact && (
-					<div className="hidden md:flex items-center gap-3 h-10 pl-3 pr-4 text-sm">
-						{checkbox}
-						{star}
+					<div className="hidden md:flex items-center gap-3 h-9 pl-2 pr-3 text-[13px] border-b border-kumo-line">
+						<div className="flex items-center gap-1 shrink-0">
+							{checkbox}
+							{star}
+						</div>
+						{unreadMark}
 						<span
-							className={`flex items-center gap-1.5 w-[200px] lg:w-[220px] shrink-0 min-w-0 ${
-								unread ? "font-bold text-kumo-default" : "text-kumo-strong"
+							className={`flex items-center gap-1.5 w-[190px] lg:w-[220px] shrink-0 min-w-0 ${
+								unread ? "font-semibold text-kumo-default" : "text-kumo-strong"
 							}`}
 						>
 							{senderLabel}
 						</span>
-						{mailboxId && <MailboxLabel mailboxId={mailboxId} />}
+						{mailboxId && <span className="w-[120px] shrink-0 min-w-0 flex"><MailboxLabel mailboxId={mailboxId} /></span>}
 						<span className="flex-1 min-w-0 truncate">
-							<span className={unread ? "font-bold text-kumo-default" : "text-kumo-default"}>{highlight(subject)}</span>
-							{snippet && <span className="text-kumo-subtle"> - {highlight(snippet)}</span>}
+							<span className={unread ? "font-semibold text-kumo-default" : "text-kumo-default"}>{highlight(subject)}</span>
+							{snippet && <span className="text-kumo-subtle"> — {highlight(snippet)}</span>}
 						</span>
-						{email.has_attachment && <PaperclipIcon size={15} className="shrink-0 text-kumo-subtle group-hover:hidden" />}
+						{status}
+						{email.has_attachment && <PaperclipIcon size={14} className="shrink-0 text-kumo-subtle group-hover:hidden" />}
 						<span
-							className={`w-[72px] shrink-0 text-right text-xs group-hover:hidden ${
-								unread ? "font-bold text-kumo-default" : "text-kumo-subtle"
+							className={`w-[76px] shrink-0 text-right ops-mono tabular text-[11px] group-hover:hidden ${
+								unread ? "font-semibold text-kumo-default" : "text-kumo-subtle"
 							}`}
 						>
 							{formatListDate(email.date)}

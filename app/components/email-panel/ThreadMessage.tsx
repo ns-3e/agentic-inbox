@@ -41,8 +41,13 @@ function DeliveryBadge({ status, detail }: { status?: string | null; detail?: st
 	if (!info) return null;
 	return (
 		<Tooltip content={detail ? `${info.hint} ${detail}` : info.hint} side="bottom" asChild>
-			<span className="inline-flex">
-				<Badge variant={info.variant}>{info.label}</Badge>
+			<span
+				className={`chip ${
+					info.variant === "success" ? "chip-ok" : info.variant === "destructive" ? "chip-bad" : info.variant === "secondary" ? "chip-warn" : ""
+				}`}
+			>
+				<span className="h-1.5 w-1.5 rounded-full bg-current" />
+				{info.label}
 			</span>
 		</Tooltip>
 	);
@@ -102,7 +107,7 @@ function Details({ email }: { email: Email }) {
 }
 
 /**
- * One message in a conversation, Gmail style: collapsed to a one-line
+ * One message in a conversation: collapsed to a one-line
  * summary, or expanded with sender, "to me ▾" details, body and attachments.
  */
 export default function ThreadMessage({
@@ -141,7 +146,7 @@ export default function ThreadMessage({
 				<Avatar sender={email.sender} size={40} />
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
-						<span className={`truncate text-sm font-bold ${isDraft ? "text-[#c5221f] dark:text-[#f28b82]" : "text-kumo-default"}`}>{name}</span>
+						<span className={`truncate text-sm font-bold ${isDraft ? "text-[var(--ops-bad)]" : "text-kumo-default"}`}>{name}</span>
 						<span className="ml-auto flex items-center gap-2 shrink-0 text-xs text-kumo-subtle">
 							{hasFiles && <PaperclipIcon size={14} />}
 							{formatListDate(email.date)}
@@ -163,7 +168,7 @@ export default function ThreadMessage({
 					<div className="flex items-start gap-2">
 						<div className="min-w-0 flex-1 cursor-pointer" onClick={onToggleExpand}>
 							<div className="flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5">
-								<span className={`text-sm font-bold ${isDraft ? "text-[#c5221f] dark:text-[#f28b82]" : "text-kumo-default"}`}>{name}</span>
+								<span className={`text-sm font-bold ${isDraft ? "text-[var(--ops-bad)]" : "text-kumo-default"}`}>{name}</span>
 								{!isDraft && sender.name && <span className="text-xs text-kumo-subtle truncate">&lt;{sender.address}&gt;</span>}
 								{isSelf && !isDraft && <DeliveryBadge status={email.delivery_status} detail={email.delivery_detail} />}
 							</div>
@@ -174,7 +179,7 @@ export default function ThreadMessage({
 							{!isDraft && (
 								<>
 									<button type="button" className="icon-btn hidden md:inline-flex" aria-label={email.starred ? "Starred" : "Not starred"} title={email.starred ? "Starred" : "Not starred"} onClick={onToggleStar}>
-										<StarIcon size={18} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-[#f4b400]" : ""} />
+										<StarIcon size={18} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-[var(--ops-star)]" : ""} />
 									</button>
 									<button type="button" className="icon-btn" aria-label="Reply" title="Reply" onClick={onReply}>
 										<ArrowBendUpLeftIcon size={18} />
@@ -228,17 +233,17 @@ export default function ThreadMessage({
 				{isDraft && (onSendDraft || onEditDraft || onDeleteDraft) && (
 					<div className="flex flex-wrap gap-2 mt-4">
 						{onEditDraft && (
-							<button type="button" onClick={onEditDraft} disabled={isSending} className="h-9 px-5 rounded-full bg-kumo-brand text-kumo-inverse text-sm font-medium border-0 cursor-pointer hover:shadow-md disabled:opacity-50">
+							<button type="button" onClick={onEditDraft} disabled={isSending} className="btn btn-primary">
 								Edit
 							</button>
 						)}
 						{onSendDraft && (
-							<button type="button" onClick={onSendDraft} disabled={isSending} className="h-9 px-5 rounded-full border border-kumo-line bg-transparent text-sm font-medium text-kumo-default cursor-pointer hover:bg-kumo-tint disabled:opacity-50">
+							<button type="button" onClick={onSendDraft} disabled={isSending} className="btn">
 								{isSending ? "Sending…" : "Send now"}
 							</button>
 						)}
 						{onDeleteDraft && (
-							<button type="button" onClick={onDeleteDraft} disabled={isSending} className="h-9 px-4 rounded-full border-0 bg-transparent text-sm font-medium text-kumo-strong cursor-pointer hover:bg-kumo-tint disabled:opacity-50">
+							<button type="button" onClick={onDeleteDraft} disabled={isSending} className="btn btn-ghost">
 								Discard
 							</button>
 						)}

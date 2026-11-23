@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Input, Loader, useKumoToastManager } from "@cloudflare/kumo";
-import { RobotIcon, ArrowCounterClockwiseIcon, FunnelSimpleIcon } from "@phosphor-icons/react";
+import { Loader, useKumoToastManager } from "@cloudflare/kumo";
+import { ArrowCounterClockwiseIcon, ArrowRightIcon, GearSixIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { useCatchAll, useSetCatchAll } from "~/queries/catchall";
@@ -39,8 +39,8 @@ export default function SettingsRoute() {
 			agentSystemPrompt: agentPrompt.trim() || undefined,
 		};
 		try {
+			// The save bar reports success; only failures need a toast.
 			await updateMailboxMutation.mutateAsync({ mailboxId, settings });
-			toastManager.add({ title: "Settings saved!" });
 		} catch {
 			toastManager.add({
 				title: "Failed to save settings",
@@ -64,76 +64,118 @@ export default function SettingsRoute() {
 	}
 
 	const isCustomPrompt = agentPrompt.trim().length > 0;
+	const savedName = mailbox.settings?.fromName || mailbox.name || "";
+	const savedPrompt = mailbox.settings?.agentSystemPrompt || "";
+	const dirty = displayName !== savedName || agentPrompt.trim() !== savedPrompt.trim();
+	const domain = mailbox.email.split("@")[1] ?? "";
 
 	return (
-		<div className="max-w-2xl px-4 py-4 md:px-8 md:py-6 h-full overflow-y-auto">
-			<h1 className="text-lg font-semibold text-kumo-default mb-6">Settings</h1>
-
-			<div className="space-y-6">
-				{/* Account */}
-				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
-					<div className="text-sm font-medium text-kumo-default mb-4">
-						Account
-					</div>
-					<div className="space-y-3">
-						<Input
-							label="Display Name"
-							value={displayName}
-							onChange={(e) => setDisplayName(e.target.value)}
-						/>
-						<Input label="Email" type="email" value={mailbox.email} disabled />
+		<div className="h-full flex flex-col min-h-0 overflow-hidden">
+			<header className="page-head">
+				<GearSixIcon size={18} className="text-kumo-subtle shrink-0" />
+				<div className="min-w-0">
+					<h1 className="page-title">Routing &amp; settings</h1>
+					<div className="page-meta">
+						Configuration for <span className="ops-mono text-kumo-strong">{mailbox.email}</span>
 					</div>
 				</div>
+			</header>
 
-				<CatchAllSection mailboxId={mailbox.email} />
-
-				{/* Agent System Prompt */}
-				<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
-					<div className="flex items-center justify-between mb-4">
-						<div className="flex items-center gap-2">
-							<RobotIcon size={16} weight="duotone" className="text-kumo-subtle" />
-							<span className="text-sm font-medium text-kumo-default">
-								AI Agent Prompt
-							</span>
-							{isCustomPrompt ? (
-								<Badge variant="primary">Custom</Badge>
-							) : (
-								<Badge variant="secondary">Default</Badge>
-							)}
+			<div className="flex-1 min-h-0 overflow-y-auto">
+				<div>
+					<section className="config-section" aria-labelledby="cfg-identity">
+						<div>
+							<h2 id="cfg-identity" className="config-title">Sender identity</h2>
+							<p className="config-desc">How this mailbox appears to recipients when you or a reviewed agent draft sends mail.</p>
 						</div>
-						{isCustomPrompt && (
-							<Button
-								variant="ghost"
-								size="xs"
-								icon={<ArrowCounterClockwiseIcon size={14} />}
-								onClick={handleResetPrompt}
-							>
-								Reset to default
-							</Button>
-						)}
-					</div>
-					<p className="text-xs text-kumo-subtle mb-3">
-						Customize how the AI agent behaves for this mailbox.
-						Leave empty to use the built-in default prompt.
-					</p>
-					<textarea
-						value={agentPrompt}
-						onChange={(e) => setAgentPrompt(e.target.value)}
-						placeholder={PROMPT_PLACEHOLDER}
-						rows={12}
-						className="w-full resize-y rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-2 text-xs text-kumo-default placeholder:text-kumo-subtle focus:outline-none focus:ring-1 focus:ring-kumo-ring font-mono leading-relaxed"
-					/>
-					<p className="text-xs text-kumo-subtle mt-2">
-						The prompt is sent as the system message to the AI model.
-						It controls the agent's personality, writing style, and behavior rules.
-					</p>
-				</div>
+						<div className="space-y-4 max-w-lg">
+							<label className="block">
+								<span className="field-label">Display name</span>
+								<input className="field" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Alice from Example" />
+							</label>
+							<label className="block">
+								<span className="field-label">Address</span>
+								<input className="field ops-mono" value={mailbox.email} disabled />
+								<span className="field-hint block">The address is fixed. To send from another address, use a burner address.</span>
+							</label>
+							<div className="rounded-md border border-kumo-line bg-kumo-tint px-3 py-2 text-xs text-kumo-subtle">
+								Recipients see: <span className="text-kumo-default font-semibold">{displayName || mailbox.email}</span>{" "}
+								<span className="ops-mono">&lt;{mailbox.email}&gt;</span>
+							</div>
+						</div>
+					</section>
 
-				{/* Save */}
-				<div className="flex justify-end">
-					<Button variant="primary" onClick={handleSave} loading={isSaving}>
-						Save Changes
-					</Button>
+					<CatchAllSection mailboxId={mailbox.email} domain={domain} />
+
+					<section className="config-section" aria-labelledby="cfg-agent">
+						<div>
+							<h2 id="cfg-agent" className="config-title flex items-center gap-2">
+								Agent instructions
+								<span className={isCustomPrompt ? "chip chip-agent" : "chip"}>{isCustomPrompt ? "Custom" : "Default"}</span>
+							</h2>
+							<p className="config-desc">The system prompt for this mailbox's agent: its voice, writing style and rules. Leave it empty to use the built-in prompt.</p>
+							<div className="mt-3 flex items-start gap-2 rounded-md border border-kumo-line px-2.5 py-2 text-xs text-kumo-subtle">
+								<ShieldCheckIcon size={14} className="text-[var(--ops-agent)] shrink-0 mt-px" />
+								<span>The prompt cannot give the agent a send tool. It drafts only; you send.</span>
+							</div>
+						</div>
+						<div className="min-w-0">
+							<div className="flex items-center justify-between mb-1.5">
+								<span className="field-label !mb-0">System prompt</span>
+								<div className="flex items-center gap-2">
+									<span className="ops-mono tabular text-[11px] text-kumo-subtle">{agentPrompt.length.toLocaleString()} chars</span>
+									{isCustomPrompt && (
+										<button type="button" className="btn btn-ghost !h-7 !px-2 !text-xs !font-medium" onClick={handleResetPrompt}>
+											<ArrowCounterClockwiseIcon size={13} />
+											Use default
+										</button>
+									)}
+								</div>
+							</div>
+							<textarea
+								value={agentPrompt}
+								onChange={(e) => setAgentPrompt(e.target.value)}
+								placeholder={PROMPT_PLACEHOLDER}
+								rows={14}
+								aria-label="Agent system prompt"
+								className="field ops-mono !text-xs resize-y"
+							/>
+						</div>
+					</section>
+				</div>
+			</div>
+
+			{/* Save bar */}
+			<div className="shrink-0 flex items-center gap-3 px-5 h-14 border-t border-kumo-line bg-[var(--ops-header)] pb-[env(safe-area-inset-bottom)]">
+				<span className="text-xs text-kumo-subtle flex items-center gap-2">
+					{dirty ? (
+						<>
+							<span className="dot bg-[var(--ops-warn)]" />
+							Unsaved changes
+						</>
+					) : (
+						<>
+							<span className="dot bg-[var(--ops-ok)]" />
+							All changes saved
+						</>
+					)}
+				</span>
+				<div className="ml-auto flex items-center gap-2">
+					{dirty && (
+						<button
+							type="button"
+							className="btn btn-ghost"
+							onClick={() => {
+								setDisplayName(savedName);
+								setAgentPrompt(savedPrompt);
+							}}
+						>
+							Discard
+						</button>
+					)}
+					<button type="button" className="btn btn-primary" onClick={handleSave} disabled={!dirty || isSaving}>
+						{isSaving ? "Saving…" : "Save changes"}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -144,51 +186,80 @@ export default function SettingsRoute() {
  * Where mail to unknown addresses on this mailbox's domain goes: into one
  * mailbox's "Other addresses" folder, or rejected. Saved as soon as it changes.
  */
-function CatchAllSection({ mailboxId }: { mailboxId: string }) {
+function CatchAllSection({ mailboxId, domain }: { mailboxId: string; domain: string }) {
 	const toastManager = useKumoToastManager();
 	const { data } = useCatchAll();
 	const setCatchAll = useSetCatchAll();
-	const domain = mailboxId.split("@")[1]?.toLowerCase() ?? "";
-	const status = data?.find((d) => d.domain === domain);
-	if (!status) return null;
+	const status = data?.find((d) => d.domain === domain.toLowerCase());
 
 	const OFF = "__off__";
 	const onChange = async (value: string) => {
 		try {
-			await setCatchAll.mutateAsync({ domain, mailboxId: value === OFF ? null : value });
-			toastManager.add({ title: value === OFF ? "Catch-all turned off" : `Catch-all mail now goes to ${value}` });
+			await setCatchAll.mutateAsync({ domain: domain.toLowerCase(), mailboxId: value === OFF ? null : value });
+			toastManager.add({ title: value === OFF ? `Catch-all for @${domain} turned off` : `Catch-all mail for @${domain} now goes to ${value}` });
 		} catch (e) {
-			toastManager.add({ title: (e as Error).message || "Could not save", variant: "error" });
+			toastManager.add({ title: (e as Error).message || "Could not save the catch-all route", variant: "error" });
 		}
 	};
 
+	const target = status?.mailboxId ?? null;
+	const routedHere = target === mailboxId;
+
 	return (
-		<div className="rounded-lg border border-kumo-line bg-kumo-base p-5">
-			<div className="flex items-center gap-2 mb-2">
-				<FunnelSimpleIcon size={16} className="text-kumo-subtle" />
-				<span className="text-sm font-medium text-kumo-default">Catch-all for @{domain}</span>
+		<section className="config-section" aria-labelledby="cfg-routing">
+			<div>
+				<h2 id="cfg-routing" className="config-title">Catch-all routing</h2>
+				<p className="config-desc">
+					Mail to an address on <span className="ops-mono">@{domain}</span> that is not a mailbox or a burner. It goes to one mailbox's
+					Other addresses queue, never an Inbox. Saved when you change it.
+				</p>
 			</div>
-			<p className="text-xs text-kumo-subtle mb-3">
-				Mail sent to an address on @{domain} that is not a mailbox or a burner. It goes to the
-				"Other addresses" folder, never the Inbox. Turn it off to bounce that mail instead.
-			</p>
-			<select
-				aria-label={`Catch-all for ${domain}`}
-				value={status.mailboxId ?? OFF}
-				disabled={setCatchAll.isPending}
-				onChange={(e) => void onChange(e.target.value)}
-				className="w-full h-10 rounded-lg border border-kumo-line bg-kumo-recessed px-3 text-sm text-kumo-default"
-			>
-				{status.mailboxes.map((m) => (
-					<option key={m} value={m}>
-						Collect in {m === mailboxId ? "this mailbox" : m}
-					</option>
-				))}
-				<option value={OFF}>Off: reject unknown addresses</option>
-			</select>
-			{!status.configured && status.mailboxId && (
-				<p className="text-xs text-kumo-subtle mt-2">Default: the first mailbox on the domain collects it.</p>
+			{!data ? (
+				<div className="text-xs text-kumo-subtle">Loading route…</div>
+			) : !status ? (
+				<div className="text-xs text-kumo-subtle">No catch-all route is available for @{domain}.</div>
+			) : (
+				<div className="space-y-3 max-w-lg">
+					{/* Route diagram */}
+					<div className="flex items-center gap-2 rounded-md border border-kumo-line bg-kumo-tint px-3 py-2.5 text-xs overflow-x-auto">
+						<span className="ops-mono text-kumo-default whitespace-nowrap">*@{domain}</span>
+						<ArrowRightIcon size={12} className="text-kumo-subtle shrink-0" />
+						{target ? (
+							<>
+								<span className="ops-mono text-kumo-default whitespace-nowrap">{target}</span>
+								<span className="text-kumo-subtle whitespace-nowrap">/ Other addresses</span>
+								<span className={`chip ml-auto ${routedHere ? "chip-accent" : ""}`}>{routedHere ? "This mailbox" : "Other mailbox"}</span>
+							</>
+						) : (
+							<>
+								<span className="text-[var(--ops-bad)] font-semibold whitespace-nowrap">Rejected (bounce)</span>
+								<span className="chip chip-bad ml-auto">Off</span>
+							</>
+						)}
+					</div>
+					<label className="block">
+						<span className="field-label">Route unknown addresses to</span>
+						<select
+							aria-label={`Catch-all for ${domain}`}
+							value={target ?? OFF}
+							disabled={setCatchAll.isPending}
+							onChange={(e) => void onChange(e.target.value)}
+							className="field"
+						>
+							{status.mailboxes.map((m) => (
+								<option key={m} value={m}>
+									{m}
+									{m === mailboxId ? " (this mailbox)" : ""}
+								</option>
+							))}
+							<option value={OFF}>Off: reject unknown addresses</option>
+						</select>
+					</label>
+					{!status.configured && target && (
+						<p className="field-hint">Not set yet. By default the first mailbox on the domain collects it.</p>
+					)}
+				</div>
 			)}
-		</div>
+		</section>
 	);
 }

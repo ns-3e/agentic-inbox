@@ -66,7 +66,7 @@ function ReplyPill({ icon, label, onClick }: { icon: React.ReactNode; label: str
 		<button
 			type="button"
 			onClick={onClick}
-			className="flex-1 md:flex-none flex items-center justify-center gap-2 h-10 md:h-9 px-4 md:px-5 rounded-full border border-kumo-line bg-transparent text-sm font-medium text-kumo-strong cursor-pointer hover:bg-kumo-tint hover:shadow-sm active:bg-kumo-tint"
+			className="btn flex-1 md:flex-none !h-10 md:!h-8"
 		>
 			{icon}
 			{label}
@@ -273,7 +273,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 	return (
 		<div className="flex flex-col h-full min-h-0 bg-kumo-base">
 			{/* ── Toolbar ── */}
-			<div className="flex items-center gap-0.5 h-14 md:h-12 px-1 md:px-3 shrink-0 md:border-b md:border-kumo-line">
+			<div className="flex items-center gap-0.5 h-14 md:h-10 px-1 md:px-2 shrink-0 md:border-b md:border-kumo-line md:bg-[var(--ops-header)]">
 				<button type="button" className="icon-btn" aria-label="Back to list" title="Back to list" onClick={closePanel}>
 					<ArrowLeftIcon size={20} />
 				</button>
@@ -315,7 +315,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					<Menu
 						align={isDesktop ? "left" : "right"}
 						label="Move to"
-						header={<div className="px-4 py-1.5 text-xs font-medium text-kumo-subtle">Move to:</div>}
+						header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Move to</div>}
 						items={moveTargets.map((f) => ({ label: f.name, onSelect: () => void actions.move([target], f.id, folder) }))}
 						trigger={(p) => (
 							<button type="button" {...p} className="icon-btn" aria-label="Move to" title="Move to">
@@ -342,7 +342,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				</div>
 				{navIdx >= 0 && (
 					<div className="hidden md:flex ml-auto items-center gap-1 text-xs text-kumo-subtle">
-						<span className="px-2 whitespace-nowrap">
+						<span className="px-2 whitespace-nowrap ops-mono tabular text-[11px]">
 							{navOffset + navIdx} of {navTotal.toLocaleString()}
 						</span>
 						<button type="button" className="icon-btn" aria-label="Newer" title="Newer" disabled={!newer} onClick={() => newer && actions.open(newer)}>
@@ -357,20 +357,17 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 
 			<div className="flex-1 min-h-0 overflow-y-auto">
 				{/* ── Subject ── */}
-				<div className="flex items-start gap-3 px-4 md:pl-[76px] md:pr-6 pt-3 pb-4">
-					<h2 className="flex-1 min-w-0 text-[22px] leading-7 font-normal text-kumo-default break-words">
-						{email.subject || "(no subject)"}
-						{folderLabel && (
-							<span className="inline-block align-middle ml-2 px-1.5 py-px rounded text-xs bg-kumo-fill text-kumo-strong font-normal">
-								{folderLabel}
+				<div className="flex items-start gap-3 px-4 md:pl-[76px] md:pr-6 pt-4 pb-3">
+					<div className="flex-1 min-w-0">
+						<h2 className="text-lg leading-6 font-semibold tracking-[-0.01em] text-kumo-default break-words">{email.subject || "(no subject)"}</h2>
+						<div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-kumo-subtle">
+							{folderLabel && <span className="chip">{folderLabel}</span>}
+							{mailboxId && <MailboxLabel mailboxId={mailboxId} full />}
+							<span className="ops-mono tabular text-[11px]">
+								{messages.length} message{messages.length === 1 ? "" : "s"}
 							</span>
-						)}
-						{unified && mailboxId && (
-							<span className="inline-block align-middle ml-1.5">
-								<MailboxLabel mailboxId={mailboxId} full />
-							</span>
-						)}
-					</h2>
+						</div>
+					</div>
 					<button
 						type="button"
 						className="icon-btn -mr-2 -mt-1.5"
@@ -378,7 +375,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 						title={email.starred ? "Starred" : "Not starred"}
 						onClick={() => void actions.setStarred([target], !email.starred)}
 					>
-						<StarIcon size={20} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-[#f4b400]" : ""} />
+						<StarIcon size={20} weight={email.starred ? "fill" : "regular"} className={email.starred ? "text-[var(--ops-star)]" : ""} />
 					</button>
 				</div>
 
@@ -394,7 +391,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 									<button
 										type="button"
 										onClick={() => setUnfolded(true)}
-										className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-kumo-base border border-kumo-line text-sm font-medium text-kumo-strong cursor-pointer hover:bg-kumo-tint"
+										className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 h-7 px-2.5 rounded-md bg-kumo-base border border-[var(--ops-line-strong)] ops-mono text-xs font-semibold text-kumo-strong cursor-pointer hover:bg-kumo-tint"
 										aria-label={`${hiddenIds.size} older messages`}
 										title={`${hiddenIds.size} older messages`}
 									>

@@ -16,9 +16,9 @@ import { useIsDesktop } from "~/hooks/useMediaQuery";
 import { useUIStore } from "~/hooks/useUIStore";
 
 /**
- * Gmail-style frame shared by a single mailbox and the unified view:
- * header across the top, left navigation, the main area as a rounded card,
- * and the optional agent panel on the right.
+ * Console frame shared by a single mailbox and the unified view: top bar,
+ * left rail, the work area, and the docked agent console on the right.
+ * Panes meet at hairlines; nothing floats.
  */
 export default function MailShell({
 	sidebar,
@@ -77,7 +77,7 @@ export default function MailShell({
 	}, [isDesktop, basePath, navigate]);
 
 	return (
-		<div className="app-shell flex flex-col overflow-hidden bg-kumo-recessed">
+		<div className="app-shell flex flex-col overflow-hidden bg-kumo-base">
 			<UrlStateSync unified={unified} />
 			<Header onShowShortcuts={() => setShowShortcuts(true)} />
 
@@ -88,20 +88,20 @@ export default function MailShell({
 				)}
 				<div
 					className={`fixed inset-y-0 left-0 z-40 w-[80vw] max-w-[300px] shadow-xl md:shadow-none md:static md:z-0 md:max-w-none transform transition-[transform,width] duration-200 ease-out md:translate-x-0 ${
-						sidebarCollapsed ? "md:w-[72px]" : "md:w-[256px]"
+						sidebarCollapsed ? "md:w-[56px]" : "md:w-[232px]"
 					} ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} pb-[env(safe-area-inset-bottom)] md:pb-0 shrink-0`}
 				>
 					{sidebar(sidebarCollapsed && isDesktop)}
 				</div>
 
-				<main className="flex-1 min-w-0 min-h-0 flex flex-col bg-kumo-base md:rounded-2xl md:mr-4 md:mb-4 overflow-hidden">
+				<main className="flex-1 min-w-0 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
 					<Outlet />
 				</main>
 
 				{isAgentPanelOpen && (
-					<div className="hidden lg:flex w-[380px] shrink-0 flex-col bg-kumo-base rounded-2xl mr-4 mb-4 overflow-hidden">
+					<aside aria-label="Agent console" className="hidden lg:flex w-[400px] shrink-0 flex-col bg-kumo-base border-l border-kumo-line overflow-hidden">
 						<AgentSidebar agentName={agentName} />
-					</div>
+					</aside>
 				)}
 			</div>
 

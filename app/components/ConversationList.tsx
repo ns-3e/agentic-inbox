@@ -72,8 +72,8 @@ export interface ConversationListProps {
 }
 
 /**
- * The Gmail conversation list: toolbar with select-all, bulk actions and
- * "1–50 of N ‹ ›" on desktop; avatar rows, swipe, long-press selection and
+ * The triage queue: toolbar with select-all, bulk actions and
+ * "1–50 of N ‹ ›" plus a column header on desktop; avatar rows, swipe, long-press selection and
  * infinite scroll on phones; j/k/x/e/#/s keyboard shortcuts.
  */
 export default function ConversationList({
@@ -263,13 +263,13 @@ export default function ConversationList({
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			{/* ── Desktop toolbar ── */}
-			<div className="hidden md:flex items-center gap-1 h-12 pl-3 pr-3 shrink-0 border-b border-kumo-line">
+			<div className="hidden md:flex items-center gap-1 h-10 pl-2 pr-2 shrink-0 border-b border-kumo-line bg-[var(--ops-header)]">
 				{onBack && (
 					<button type="button" className="icon-btn" aria-label="Back" title="Back" onClick={onBack}>
-						<ArrowLeftIcon size={18} />
+						<ArrowLeftIcon size={16} />
 					</button>
 				)}
-				<div className="flex items-center rounded hover:bg-black/5 dark:hover:bg-white/10 pl-2">
+				<div className="flex items-center rounded-md hover:bg-kumo-fill pl-1.5 h-7">
 					<input
 						type="checkbox"
 						aria-label="Select all"
@@ -292,7 +292,7 @@ export default function ConversationList({
 							{ label: "Unstarred", onSelect: () => selectBy((e) => !e.starred) },
 						]}
 						trigger={(p) => (
-							<button type="button" {...p} aria-label="Select options" className="h-8 w-5 flex items-center justify-center bg-transparent border-0 cursor-pointer text-kumo-strong">
+							<button type="button" {...p} aria-label="Select options" className="h-7 w-5 flex items-center justify-center bg-transparent border-0 cursor-pointer text-kumo-strong">
 								<CaretDownIcon size={12} weight="bold" />
 							</button>
 						)}
@@ -302,17 +302,17 @@ export default function ConversationList({
 				{!selectionMode ? (
 					<>
 						<button type="button" className="icon-btn" aria-label="Refresh" title="Refresh" onClick={refresh}>
-							<ArrowClockwiseIcon size={18} className={list.isFetching ? "animate-spin" : ""} />
+							<ArrowClockwiseIcon size={16} className={list.isFetching ? "animate-spin" : ""} />
 						</button>
 						<Menu
 							align="left"
 							label="More"
 							items={[
-								{ label: "Mark all as read", icon: <EnvelopeOpenIcon size={18} />, onSelect: () => void actions.setRead(targets(emails.filter(emailHasUnread)), true) },
+								{ label: "Mark all as read", icon: <EnvelopeOpenIcon size={16} />, onSelect: () => void actions.setRead(targets(emails.filter(emailHasUnread)), true) },
 							]}
 							trigger={(p) => (
 								<button type="button" {...p} className="icon-btn" aria-label="More" title="More">
-									<DotsThreeVerticalIcon size={18} weight="bold" />
+									<DotsThreeVerticalIcon size={16} weight="bold" />
 								</button>
 							)}
 						/>
@@ -321,12 +321,12 @@ export default function ConversationList({
 					<div className="flex items-center gap-0.5">
 						{isArchiveLike ? (
 							<button type="button" className="icon-btn" title="Move to Inbox" aria-label="Move to Inbox" onClick={bulk.unarchive}>
-								<TrayIcon size={18} />
+								<TrayIcon size={16} />
 							</button>
 						) : (
 							folder && folder !== Folders.DRAFT && folder !== Folders.SENT && (
 								<button type="button" className="icon-btn" title="Archive" aria-label="Archive" onClick={bulk.archive}>
-									<ArchiveIcon size={18} />
+									<ArchiveIcon size={16} />
 								</button>
 							)
 						)}
@@ -337,7 +337,7 @@ export default function ConversationList({
 							aria-label={folder === Folders.TRASH ? "Delete forever" : "Delete"}
 							onClick={bulk.trash}
 						>
-							<TrashIcon size={18} />
+							<TrashIcon size={16} />
 						</button>
 						<div className="w-px h-5 bg-kumo-line mx-1.5" />
 						<button
@@ -347,17 +347,17 @@ export default function ConversationList({
 							aria-label={anyUnreadChecked ? "Mark as read" : "Mark as unread"}
 							onClick={() => bulk.read(anyUnreadChecked)}
 						>
-							{anyUnreadChecked ? <EnvelopeOpenIcon size={18} /> : <EnvelopeSimpleIcon size={18} />}
+							{anyUnreadChecked ? <EnvelopeOpenIcon size={16} /> : <EnvelopeSimpleIcon size={16} />}
 						</button>
 						{folder !== Folders.DRAFT && (
 							<Menu
 								align="left"
 								label="Move to"
-								header={<div className="px-4 py-1.5 text-xs font-medium text-kumo-subtle">Move to:</div>}
+								header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Move to</div>}
 								items={moveTargets.map((f) => ({ label: f.name, onSelect: () => bulk.move(f.id) }))}
 								trigger={(p) => (
 									<button type="button" {...p} className="icon-btn" title="Move to" aria-label="Move to">
-										<FolderSimpleIcon size={18} />
+										<FolderSimpleIcon size={16} />
 									</button>
 								)}
 							/>
@@ -366,18 +366,18 @@ export default function ConversationList({
 							align="left"
 							label="More"
 							items={[
-								{ label: "Mark as read", icon: <EnvelopeOpenIcon size={18} />, onSelect: () => bulk.read(true) },
-								{ label: "Mark as unread", icon: <EnvelopeSimpleIcon size={18} />, onSelect: () => bulk.read(false) },
-								{ label: "Add star", icon: <StarIcon size={18} />, onSelect: () => bulk.star(true) },
-								{ label: "Remove star", icon: <StarIcon size={18} />, onSelect: () => bulk.star(false) },
+								{ label: "Mark as read", icon: <EnvelopeOpenIcon size={16} />, onSelect: () => bulk.read(true) },
+								{ label: "Mark as unread", icon: <EnvelopeSimpleIcon size={16} />, onSelect: () => bulk.read(false) },
+								{ label: "Add star", icon: <StarIcon size={16} />, onSelect: () => bulk.star(true) },
+								{ label: "Remove star", icon: <StarIcon size={16} />, onSelect: () => bulk.star(false) },
 							]}
 							trigger={(p) => (
 								<button type="button" {...p} className="icon-btn" aria-label="More" title="More">
-									<DotsThreeVerticalIcon size={18} weight="bold" />
+									<DotsThreeVerticalIcon size={16} weight="bold" />
 								</button>
 							)}
 						/>
-						<span className="ml-2 text-sm text-kumo-subtle">{checkedEmails.length} selected</span>
+						<span className="chip chip-accent ml-2 tabular">{checkedEmails.length} selected</span>
 					</div>
 				)}
 
@@ -449,6 +449,20 @@ export default function ConversationList({
 				</div>
 			)}
 
+			{!compact && emails.length > 0 && (
+				<div
+					aria-hidden
+					className="hidden md:flex items-center gap-3 h-7 pl-2 pr-3 shrink-0 border-b border-kumo-line text-[10.5px] font-semibold uppercase tracking-[0.04em] text-kumo-subtle bg-kumo-base"
+				>
+					<span className="w-[60px] shrink-0" />
+					<span className="w-2 shrink-0" />
+					<span className="w-[190px] lg:w-[220px] shrink-0">{folder === Folders.SENT || folder === Folders.DRAFT ? "Recipients" : "From"}</span>
+					{unified && <span className="w-[120px] shrink-0">Mailbox</span>}
+					<span className="flex-1 min-w-0">Subject</span>
+					<span className="w-[76px] shrink-0 text-right">{folder === Folders.SENT ? "Sent" : "Received"}</span>
+				</div>
+			)}
+
 			{list.failed.length > 0 && (
 				<div className="px-3 pt-3">
 					<Banner variant="error" text={`Could not load: ${list.failed.join(", ")}. Other mailboxes are shown.`} />
@@ -456,14 +470,15 @@ export default function ConversationList({
 			)}
 
 			<PullToRefresh onRefresh={refresh} className="flex-1 min-h-0 pb-24 md:pb-0">
-				{/* Phone: folder title like the Gmail app */}
+				{/* Phone: queue title */}
 				<div className="md:hidden flex items-center gap-1 px-4 pt-2 pb-1">
 					{onBack && (
 						<button type="button" className="icon-btn -ml-2" aria-label="Back" onClick={onBack}>
 							<ArrowLeftIcon size={20} />
 						</button>
 					)}
-					<h1 className="text-xs font-medium uppercase tracking-wide text-kumo-subtle truncate">{title}</h1>
+					<h1 className="text-[15px] font-semibold text-kumo-default truncate">{title}</h1>
+						{totalCount > 0 && <span className="ml-auto ops-mono tabular text-[11px] text-kumo-subtle">{totalCount.toLocaleString()}</span>}
 				</div>
 
 				{list.error ? (

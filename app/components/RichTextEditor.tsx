@@ -183,7 +183,7 @@ export function FormattingToolbar({ editor }: { editor: Editor }) {
 	});
 	const c = () => editor.chain().focus();
 	return (
-		<div className="flex flex-wrap items-center gap-0.5 rounded-lg shadow-[0_1px_3px_rgba(60,64,67,0.3)] bg-kumo-elevated px-1 py-0.5" role="toolbar" aria-label="Formatting options">
+		<div className="flex flex-wrap items-center gap-0.5 rounded-lg shadow-[0_2px_8px_-2px_rgb(15_20_26/0.18)] border border-kumo-line bg-kumo-elevated px-1 py-0.5" role="toolbar" aria-label="Formatting options">
 			<ToolButton label="Undo" disabled={!s.canUndo} onClick={() => c().undo().run()}>
 				<ArrowCounterClockwiseIcon size={16} />
 			</ToolButton>

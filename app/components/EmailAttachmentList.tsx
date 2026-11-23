@@ -16,10 +16,10 @@ interface EmailAttachmentListProps {
 }
 
 function fileIcon(mime: string, size = 28) {
-	if (mime.startsWith("image/")) return <ImageIcon size={size} className="text-[#d93025]" />;
-	if (mime === "application/pdf") return <FilePdfIcon size={size} className="text-[#d93025]" />;
+	if (mime.startsWith("image/")) return <ImageIcon size={size} className="text-[var(--ops-bad)]" />;
+	if (mime === "application/pdf") return <FilePdfIcon size={size} className="text-[var(--ops-bad)]" />;
 	if (/zip|compressed|tar|gzip/.test(mime)) return <FileZipIcon size={size} className="text-kumo-strong" />;
-	return <FileIcon size={size} className="text-[#1a73e8]" />;
+	return <FileIcon size={size} className="text-kumo-brand" />;
 }
 
 /** Gmail-style attachment cards: thumbnail (images) or file icon, name and size. */

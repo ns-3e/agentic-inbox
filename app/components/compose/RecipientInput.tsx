@@ -106,8 +106,8 @@ export default function RecipientInput({
 							<span
 								key={`${v}-${i}`}
 								title={!valid ? `"${v}" is not a valid email address` : fix ? `Did you mean ${fix}?` : address}
-								className={`inline-flex items-center gap-1 max-w-full h-7 pl-0.5 pr-1 rounded-full text-sm border ${
-									bad ? "border-[#d93025] text-[#d93025] bg-[#fce8e6] dark:bg-[#5c2b29] dark:text-[#f28b82] dark:border-[#f28b82]" : "border-[var(--chip-border)] bg-[var(--chip-bg)] text-kumo-default"
+								className={`inline-flex items-center gap-1 max-w-full h-6 pl-0.5 pr-1 rounded text-[13px] border ${
+									bad ? "border-[var(--ops-bad)] text-[var(--ops-bad)] bg-[var(--ops-bad-tint)]" : "border-[var(--chip-border)] bg-[var(--chip-bg)] text-kumo-default"
 								}`}
 							>
 								<Avatar sender={v} size={22} />

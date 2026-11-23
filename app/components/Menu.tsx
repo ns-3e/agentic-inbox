@@ -90,7 +90,7 @@ export default function Menu({
 								type="button"
 								role="menuitem"
 								disabled={item.disabled}
-								className={`menu-item disabled:opacity-40 ${item.danger ? "!text-[#c5221f] dark:!text-[#f28b82]" : ""}`}
+								className={`menu-item disabled:opacity-40 ${item.danger ? "!text-[var(--ops-bad)]" : ""}`}
 								onClick={(e) => {
 									e.stopPropagation();
 									setOpen(false);

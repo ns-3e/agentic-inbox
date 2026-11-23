@@ -30,17 +30,17 @@ export default function UnifiedBurnersRoute() {
 		);
 	}
 	if (mailboxes.length === 0) {
-		return <div className="px-4 py-12 text-center text-sm text-kumo-subtle">Create a mailbox first.</div>;
+		return <div className="px-4 py-12 text-center text-sm text-kumo-subtle">Create a mailbox in the Mailbox directory first. Burner addresses belong to a mailbox.</div>;
 	}
 
 	const picker =
 		mailboxes.length > 1 ? (
-			<label className="flex items-center gap-2 mb-6 text-sm">
-				<span className="text-kumo-subtle shrink-0">Mailbox</span>
+			<label className="flex items-center gap-2 text-xs">
+				<span className="font-semibold text-kumo-subtle shrink-0">Mailbox</span>
 				<select
 					value={mailboxId}
 					onChange={(e) => setParams({ mb: e.target.value }, { replace: true })}
-					className="flex-1 min-w-0 h-10 rounded-lg border border-kumo-line bg-kumo-base px-3 text-kumo-default"
+					className="field ops-mono flex-1 min-w-[14rem]"
 				>
 					{mailboxes.map((m) => (
 						<option key={m.id} value={m.id}>

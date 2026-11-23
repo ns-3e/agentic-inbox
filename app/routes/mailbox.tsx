@@ -7,12 +7,16 @@ import { useParams } from "react-router";
 import MailShell from "~/components/MailShell";
 import Sidebar from "~/components/Sidebar";
 import { useUIStore } from "~/hooks/useUIStore";
-import { useMailbox } from "~/queries/mailboxes";
+import { setMailboxOrder } from "~/components/EmailListRow";
+import { useMailbox, useMailboxes } from "~/queries/mailboxes";
 
 export default function MailboxRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
 	// Prefetch mailbox data for child components
 	useMailbox(mailboxId);
+	// Same per-mailbox colors as the directory and All mailboxes.
+	const { data: mailboxes } = useMailboxes();
+	if (mailboxes) setMailboxOrder(mailboxes.map((m) => m.id));
 	const prev = useRef<string | undefined>(undefined);
 
 	useEffect(() => {

@@ -5,27 +5,28 @@
 import { Loader } from "@cloudflare/kumo";
 import { PlugsIcon, RobotIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { useUIStore } from "~/hooks/useUIStore";
 import MCPPanel from "./MCPPanel";
 
 function LazyAgentPanel({ agentName }: { agentName?: string }) {
-	const [AgentChat, setAgentChat] = useState<React.ComponentType<{ agentName?: string }> | null>(
-		null,
-	);
+	const [AgentChat, setAgentChat] = useState<React.ComponentType<{ agentName?: string }> | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 
 	useEffect(() => {
-		import("~/components/AgentPanel").then((mod) => {
-			setAgentChat(() => mod.default);
-		}).catch((err) => {
-			console.error("Failed to load AgentPanel:", err);
-			setLoadError("Failed to load agent panel");
-		});
+		import("~/components/AgentPanel")
+			.then((mod) => {
+				setAgentChat(() => mod.default);
+			})
+			.catch((err) => {
+				console.error("Failed to load AgentPanel:", err);
+				setLoadError("Could not load the agent console. Reload the page to retry.");
+			});
 	}, []);
 
 	if (loadError) {
 		return (
-			<div className="flex items-center justify-center h-full">
-				<span className="text-xs text-kumo-error">{loadError}</span>
+			<div className="flex items-center justify-center h-full px-6 text-center">
+				<span className="text-xs text-[var(--ops-bad)]">{loadError}</span>
 			</div>
 		);
 	}
@@ -33,56 +34,55 @@ function LazyAgentPanel({ agentName }: { agentName?: string }) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full gap-2">
 				<Loader size="base" />
-				<span className="text-xs text-kumo-subtle">Loading agent...</span>
+				<span className="text-xs text-kumo-subtle">Loading agent console…</span>
 			</div>
 		);
 	}
 	return <AgentChat agentName={agentName} />;
 }
 
+const TABS = [
+	{ id: "agent" as const, label: "Agent", icon: RobotIcon },
+	{ id: "mcp" as const, label: "MCP endpoint", icon: PlugsIcon },
+];
+
 /**
+ * The automation dock: the agent console and the MCP endpoint.
  * @param agentName Agent instance to chat with. Defaults to the mailbox in the
  *   URL; the unified view passes UNIFIED_AGENT_NAME for the all-mailbox agent.
  */
 export default function AgentSidebar({ agentName }: { agentName?: string } = {}) {
-	const [activeTab, setActiveTab] = useState<"agent" | "mcp">("agent");
+	const { agentTab, setAgentTab } = useUIStore();
 
 	return (
 		<div className="flex flex-col h-full">
-			{/* Tab bar */}
-			<div className="flex items-center border-b border-kumo-line shrink-0">
-				<button
-					type="button"
-					onClick={() => setActiveTab("agent")}
-					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
-						activeTab === "agent"
-							? "border-kumo-brand text-kumo-default"
-							: "border-transparent text-kumo-subtle hover:text-kumo-default"
-					}`}
-				>
-					<RobotIcon size={14} weight={activeTab === "agent" ? "fill" : "regular"} />
-					Agent
-				</button>
-				<button
-					type="button"
-					onClick={() => setActiveTab("mcp")}
-					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 bg-transparent cursor-pointer ${
-						activeTab === "mcp"
-							? "border-kumo-brand text-kumo-default"
-							: "border-transparent text-kumo-subtle hover:text-kumo-default"
-					}`}
-				>
-					<PlugsIcon size={14} weight={activeTab === "mcp" ? "fill" : "regular"} />
-					MCP
-				</button>
+			<div role="tablist" aria-label="Automation" className="flex items-end gap-1 h-10 px-2 border-b border-kumo-line shrink-0 bg-[var(--ops-header)]">
+				{TABS.map(({ id, label, icon: Icon }) => {
+					const on = agentTab === id;
+					return (
+						<button
+							key={id}
+							type="button"
+							role="tab"
+							aria-selected={on}
+							onClick={() => setAgentTab(id)}
+							className={`flex items-center gap-1.5 h-10 px-2.5 -mb-px text-[13px] border-b-2 bg-transparent cursor-pointer transition-colors ${
+								on ? "border-kumo-brand text-kumo-default font-semibold" : "border-transparent text-kumo-subtle hover:text-kumo-default"
+							}`}
+						>
+							<Icon size={15} weight={on ? "fill" : "regular"} className={id === "agent" ? "text-[var(--ops-agent)]" : ""} />
+							{label}
+						</button>
+					);
+				})}
 			</div>
 
-			{/* Tab content — keep agent mounted so chat isn't lost */}
+			{/* Keep the agent mounted so the transcript is not lost. */}
 			<div className="flex-1 min-h-0 overflow-hidden">
-				<div className={activeTab === "agent" ? "h-full" : "hidden"}>
+				<div className={agentTab === "agent" ? "h-full" : "hidden"}>
 					<LazyAgentPanel agentName={agentName} />
 				</div>
-				{activeTab === "mcp" && <MCPPanel />}
+				{agentTab === "mcp" && <MCPPanel />}
 			</div>
 		</div>
 	);

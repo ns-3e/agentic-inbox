@@ -30,7 +30,7 @@ export function useSwipeActions(
 			const swipeRight: SwipeAction = {
 				label: unread ? "Read" : "Unread",
 				icon: unread ? <EnvelopeOpenIcon size={20} /> : <EnvelopeSimpleIcon size={20} />,
-				className: "bg-[#0b57d0]",
+				className: "bg-[var(--color-kumo-brand)]",
 				run: () => void actions.setRead(target, unread),
 			};
 
@@ -39,7 +39,7 @@ export function useSwipeActions(
 				swipeLeft = {
 					label: folder === Folders.DRAFT ? "Discard" : "Inbox",
 					icon: folder === Folders.DRAFT ? <TrashIcon size={20} /> : <TrayIcon size={20} />,
-					className: folder === Folders.DRAFT ? "bg-[#c5221f]" : "bg-[#0b57d0]",
+					className: folder === Folders.DRAFT ? "bg-[var(--ops-bad)]" : "bg-[var(--color-kumo-brand)]",
 					removesRow: true,
 					run: () =>
 						folder === Folders.DRAFT
@@ -50,7 +50,7 @@ export function useSwipeActions(
 				swipeLeft = {
 					label: "Inbox",
 					icon: <TrayIcon size={20} />,
-					className: "bg-[#0b57d0]",
+					className: "bg-[var(--color-kumo-brand)]",
 					removesRow: true,
 					run: () => void actions.move(target, Folders.INBOX, folder),
 				};
@@ -58,7 +58,7 @@ export function useSwipeActions(
 				swipeLeft = {
 					label: "Archive",
 					icon: <ArchiveIcon size={20} />,
-					className: "bg-[#188038]",
+					className: "bg-[var(--ops-ok)]",
 					removesRow: true,
 					run: () => void actions.archive(target, folder),
 				};
@@ -66,7 +66,7 @@ export function useSwipeActions(
 				swipeLeft = {
 					label: "Delete",
 					icon: <TrashIcon size={20} />,
-					className: "bg-[#c5221f]",
+					className: "bg-[var(--ops-bad)]",
 					removesRow: true,
 					run: () => void actions.trash(target, email.folder_id || undefined),
 				};

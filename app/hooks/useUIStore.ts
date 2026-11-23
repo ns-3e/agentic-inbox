@@ -43,6 +43,7 @@ export interface ComposeOptions {
 }
 
 export type ReadingPane = "none" | "right";
+export type AgentTab = "agent" | "mcp";
 
 const PREFS_KEY = "inbox.ui.prefs";
 interface Prefs {
@@ -102,6 +103,11 @@ interface UIState extends Prefs {
 
 	// Agent panel (desktop side panel) and full-screen sheet (phones/tablets)
 	toggleAgentPanel: () => void;
+	/** Which view the agent dock shows. */
+	agentTab: AgentTab;
+	/** Open the dock (desktop) or sheet (phones) on one view. */
+	openAgentDock: (tab: AgentTab, desktop: boolean) => void;
+	setAgentTab: (tab: AgentTab) => void;
 	isMobileAgentOpen: boolean;
 	openMobileAgent: () => void;
 	closeMobileAgent: () => void;
@@ -137,6 +143,7 @@ export const useUIStore = create<UIState>((set, get) => {
 		checked: new Set(),
 		isSidebarOpen: false,
 		isMobileAgentOpen: false,
+		agentTab: "agent",
 
 		selectEmail: (id, mailboxId) =>
 			set((s) => ({
@@ -206,6 +213,15 @@ export const useUIStore = create<UIState>((set, get) => {
 		toggleSidebarCollapsed: () => setPref({ sidebarCollapsed: !get().sidebarCollapsed }),
 		toggleAgentPanel: () => setPref({ isAgentPanelOpen: !get().isAgentPanelOpen }),
 
+		setAgentTab: (agentTab) => set({ agentTab }),
+		openAgentDock: (agentTab, desktop) => {
+			if (desktop) {
+				set({ agentTab });
+				if (!get().isAgentPanelOpen) setPref({ isAgentPanelOpen: true });
+			} else {
+				set({ agentTab, isMobileAgentOpen: true, isSidebarOpen: false });
+			}
+		},
 		openMobileAgent: () => set({ isMobileAgentOpen: true, isSidebarOpen: false }),
 		closeMobileAgent: () => set({ isMobileAgentOpen: false }),
 	};

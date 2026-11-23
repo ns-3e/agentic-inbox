@@ -2,42 +2,67 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { ArchiveIcon, FileIcon, FunnelSimpleIcon, PaperPlaneTiltIcon, PencilSimpleIcon, StarIcon, TrashIcon, TrayIcon } from "@phosphor-icons/react";
+import {
+	ArchiveIcon,
+	FileIcon,
+	FunnelSimpleIcon,
+	PaperPlaneTiltIcon,
+	PencilSimpleIcon,
+	PlugsIcon,
+	RobotIcon,
+	StarIcon,
+	TrashIcon,
+	TrayIcon,
+} from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { Folders } from "shared/folders";
+import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useUIStore } from "~/hooks/useUIStore";
 
+/** Mail queues, in rail order. "Other addresses" is the catch-all queue. */
 export const NAV_FOLDERS = [
 	{ id: Folders.INBOX, label: "Inbox", icon: TrayIcon },
 	{ id: Folders.OTHER, label: "Other addresses", icon: FunnelSimpleIcon },
 	{ id: "starred", label: "Starred", icon: StarIcon },
-	{ id: Folders.SENT, label: "Sent", icon: PaperPlaneTiltIcon },
 	{ id: Folders.DRAFT, label: "Drafts", icon: FileIcon },
+	{ id: Folders.SENT, label: "Sent", icon: PaperPlaneTiltIcon },
 	{ id: Folders.ARCHIVE, label: "Archive", icon: ArchiveIcon },
 	{ id: Folders.TRASH, label: "Trash", icon: TrashIcon },
 ] as const;
 
-/** Gmail's big "Compose" button (pill; round icon when the rail is collapsed). */
+/** Primary rail action: start a new message. Square icon when the rail is collapsed. */
 export function ComposePill({ collapsed, onClick, disabled }: { collapsed: boolean; onClick: () => void; disabled?: boolean }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			disabled={disabled}
-			aria-label="Compose"
-			title="Compose"
-			className={`flex items-center gap-3 h-14 rounded-2xl border-0 cursor-pointer font-medium text-sm transition-shadow hover:shadow-[0_1px_3px_0_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)] disabled:opacity-50 ${
-				collapsed ? "w-14 justify-center" : "pl-4 pr-6"
-			}`}
-			style={{ background: "var(--compose-pill)", color: "var(--compose-pill-text)" }}
+			aria-label="New message"
+			title="New message (c)"
+			className={`btn btn-primary ${collapsed ? "!w-10 !h-9 !px-0 mx-auto" : "w-full justify-between"}`}
 		>
-			<PencilSimpleIcon size={22} />
-			{!collapsed && "Compose"}
+			<span className="flex items-center gap-2">
+				<PencilSimpleIcon size={16} weight="bold" />
+				{!collapsed && "New message"}
+			</span>
+			{!collapsed && <kbd className="!bg-transparent !border-white/30 !text-current opacity-80">c</kbd>}
 		</button>
 	);
 }
 
-/** One left-nav entry: rounded-right pill, bold with a count when it has unread mail. */
+/** A rail section heading ("Queues", "Identity"…); hidden when the rail is collapsed. */
+export function NavSection({ label, collapsed, action }: { label: string; collapsed: boolean; action?: ReactNode }) {
+	if (collapsed) return <div className="mx-3 my-2.5 h-px bg-kumo-line" />;
+	return (
+		<div className="nav-section">
+			<span>{label}</span>
+			{action}
+		</div>
+	);
+}
+
+/** One rail entry. Counts are unread messages. */
 export function NavPill({
 	to,
 	label,
@@ -45,13 +70,19 @@ export function NavPill({
 	count,
 	active,
 	collapsed,
+	mono,
+	tooltip,
 }: {
 	to: string;
 	label: string;
-	icon: React.ReactNode;
+	icon: ReactNode;
 	count?: number;
 	active: boolean;
 	collapsed: boolean;
+	/** The label is an address: set it in mono. */
+	mono?: boolean;
+	/** Full text on hover (for shortened labels). */
+	tooltip?: string;
 }) {
 	const closeSidebar = useUIStore((s) => s.closeSidebar);
 	return (
@@ -59,14 +90,45 @@ export function NavPill({
 			to={to}
 			onClick={closeSidebar}
 			aria-current={active ? "page" : undefined}
-			title={collapsed ? (count ? `${label} (${count})` : label) : undefined}
-			className={`nav-pill relative ${active ? "active" : ""} ${collapsed ? "collapsed" : ""} ${count ? "font-bold" : ""}`}
+			title={collapsed ? (count ? `${tooltip ?? label} (${count} unread)` : (tooltip ?? label)) : (tooltip ?? (mono ? label : undefined))}
+			className={`nav-pill relative ${active ? "active" : ""} ${collapsed ? "collapsed" : ""}`}
 		>
 			<span className="shrink-0 flex">{icon}</span>
-			{!collapsed && <span className="flex-1 min-w-0 truncate">{label}</span>}
-			{!collapsed && !!count && <span className="text-xs">{count.toLocaleString()}</span>}
-			{collapsed && !!count && <span className="absolute top-0.5 right-2 h-2 w-2 rounded-full bg-[#d93025]" />}
+			{!collapsed && <span className={`flex-1 min-w-0 truncate ${mono ? "ops-mono" : ""} ${count ? "text-kumo-default font-semibold" : ""}`}>{label}</span>}
+			{!collapsed && !!count && <span className="nav-count">{count > 999 ? "999+" : count}</span>}
+			{collapsed && !!count && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-kumo-brand" />}
 		</Link>
+	);
+}
+
+/** Rail entries that open the agent dock on the Agent or MCP view. */
+export function AutomationNav({ collapsed }: { collapsed: boolean }) {
+	const isLg = useMediaQuery("(min-width: 1024px)");
+	const { openAgentDock, isAgentPanelOpen, agentTab } = useUIStore();
+	const items = [
+		{ tab: "agent" as const, label: "Agent console", icon: <RobotIcon size={18} />, tone: "text-[var(--ops-agent)]" },
+		{ tab: "mcp" as const, label: "MCP endpoint", icon: <PlugsIcon size={18} />, tone: "" },
+	];
+	return (
+		<>
+			<NavSection label="Automation" collapsed={collapsed} />
+			{items.map((it) => {
+				const on = isLg && isAgentPanelOpen && agentTab === it.tab;
+				return (
+					<button
+						key={it.tab}
+						type="button"
+						onClick={() => openAgentDock(it.tab, isLg)}
+						aria-pressed={on}
+						title={collapsed ? it.label : undefined}
+						className={`nav-pill ${on ? "active" : ""} ${collapsed ? "collapsed" : ""}`}
+					>
+						<span className={`shrink-0 flex ${it.tone}`}>{it.icon}</span>
+						{!collapsed && <span className="flex-1 min-w-0 truncate">{it.label}</span>}
+					</button>
+				);
+			})}
+		</>
 	);
 }
 

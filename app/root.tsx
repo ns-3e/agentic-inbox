@@ -101,7 +101,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<meta name="apple-mobile-web-app-title" content="Inbox" />
 				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 				<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-				<meta name="theme-color" content="#1c1c1c" media="(prefers-color-scheme: dark)" />
+				<meta name="theme-color" content="#15191e" media="(prefers-color-scheme: dark)" />
 				<meta name="format-detection" content="telephone=no" />
 				<title>Agentic Inbox</title>
 				<Meta />

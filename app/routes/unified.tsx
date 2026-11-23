@@ -12,7 +12,7 @@ import { useUIStore } from "~/hooks/useUIStore";
 import { useUnifiedSummary } from "~/queries/emails";
 
 export function meta() {
-	return [{ title: "All inboxes · Agentic Inbox" }];
+	return [{ title: "All mailboxes · Agentic Inbox" }];
 }
 
 /**

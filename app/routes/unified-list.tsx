@@ -27,7 +27,7 @@ export default function UnifiedListRoute() {
 	const source = useMemo(() => ({ kind: "folder" as const, folder }), [folder]);
 
 	if (!KNOWN_FOLDERS.has(folder)) return <Navigate to="/all/inbox" replace />;
-	const title = folder === Folders.INBOX ? "All inboxes" : `All ${getFolderDisplayName(folder).toLowerCase()}`;
+	const title = `${getFolderDisplayName(folder)} · all mailboxes`;
 
 	return (
 		<MailboxSplitView selectedEmailId={selectedEmailId}>

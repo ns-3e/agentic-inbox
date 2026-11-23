@@ -5,16 +5,20 @@
 import {
 	Button,
 	Dialog,
-	Empty,
 	Input,
 	Loader,
 	Select,
 	Text,
 	useKumoToastManager,
 } from "@cloudflare/kumo";
-import { CaretRightIcon, EnvelopeIcon, PlusIcon, StackIcon, TrashIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, CaretRightIcon, EnvelopeIcon, FireIcon, PlusIcon, StackIcon, TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Folders } from "shared/folders";
+import { mailboxHue, setMailboxOrder } from "~/components/EmailListRow";
+import { useBurners } from "~/queries/burners";
+import { useCatchAll } from "~/queries/catchall";
+import { useUnifiedSummary } from "~/queries/emails";
 import { Link as RouterLink } from "react-router";
 import api from "~/services/api";
 import {
@@ -25,7 +29,7 @@ import {
 import { queryKeys } from "~/queries/keys";
 
 export function meta() {
-	return [{ title: "Agentic Inbox" }];
+	return [{ title: "Mailbox directory · Agentic Inbox" }];
 }
 
 export default function HomeRoute() {
@@ -93,7 +97,7 @@ export default function HomeRoute() {
 		e.preventDefault();
 		setCreateError(null);
 		if (!newPrefix || !selectedDomain) {
-			setCreateError("Please fill in all fields");
+			setCreateError("Enter the address and choose a domain.");
 			return;
 		}
 		const email = `${newPrefix}@${selectedDomain}`;
@@ -101,7 +105,7 @@ export default function HomeRoute() {
 		setIsCreating(true);
 		try {
 			await createMailbox.mutateAsync({ email, name });
-			toastManager.add({ title: "Mailbox created successfully!" });
+			toastManager.add({ title: `Mailbox ${email} created` });
 			setIsCreateOpen(false);
 			setNewPrefix("");
 			setNewName("");
@@ -138,126 +142,235 @@ export default function HomeRoute() {
 		: mailboxes;
 
 	const isLoading = !configData;
+	const { data: summaries = [] } = useUnifiedSummary({ refetchInterval: 30_000 });
+	const { data: catchAll = [] } = useCatchAll();
+	setMailboxOrder(accounts.map((a) => a.id));
+
+	const unread = (id: string, folder: string) =>
+		summaries.find((m) => m.id === id)?.folders.find((f) => f.id === folder)?.unreadCount ?? 0;
+	const inboxUnread = accounts.reduce((n, a) => n + unread(a.id, Folders.INBOX), 0);
+	const otherUnread = accounts.reduce((n, a) => n + unread(a.id, Folders.OTHER), 0);
+	const allDomains = domains.length ? domains : [...new Set(accounts.map((a) => a.email.split("@")[1]).filter(Boolean))];
+	const catchAllTarget = (email: string) => catchAll.find((c) => c.mailboxId === email)?.domain;
+
+	const askDelete = (account: { id: string; email: string }) => {
+		setMailboxToDelete({ id: account.id, email: account.email });
+		setIsDeleteOpen(true);
+	};
 
 	return (
-		<div className="page-scroll bg-kumo-recessed pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-			<div className="mx-auto max-w-2xl px-4 py-8 md:px-6 md:py-16">
-				<div className="mb-8">
-					<div className="flex items-center justify-between">
-						<h1 className="text-2xl font-bold text-kumo-default">Mailboxes</h1>
-						{!isConfigured && (
-							<Button
-								variant="primary"
-								icon={<PlusIcon size={16} />}
-								onClick={() => setIsCreateOpen(true)}
-							>
-								New Mailbox
-							</Button>
+		<div className="page-scroll bg-kumo-base pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+			{/* Top bar */}
+			<div className="flex items-center gap-2.5 h-12 px-4 border-b border-kumo-line bg-kumo-base">
+				<span className="h-6 w-6 rounded-[5px] bg-kumo-brand text-kumo-inverse flex items-center justify-center shrink-0">
+					<TrayArrowDownIcon size={15} weight="bold" />
+				</span>
+				<span className="text-[13px] font-semibold text-kumo-default">Agentic Inbox</span>
+				<CaretRightIcon size={12} className="text-kumo-subtle" />
+				<span className="text-[13px] font-semibold text-kumo-default">Mailbox directory</span>
+			</div>
+
+			<header className="page-head flex-wrap">
+				<div className="min-w-0">
+					<h1 className="page-title">Mailbox directory</h1>
+					<div className="page-meta">
+						Every mailbox, its queues, burner addresses and catch-all route
+						{allDomains.length > 0 && allDomains.length <= 3 && (
+							<>
+								{" "}on <span className="ops-mono text-kumo-strong">{allDomains.join(", ")}</span>
+							</>
+						)}
+						{allDomains.length > 3 && (
+							<>
+								{" "}across <span className="text-kumo-strong" title={allDomains.join(", ")}>{allDomains.length} domains</span>
+							</>
 						)}
 					</div>
-					{domains.length > 0 && (
-						<p className="text-sm text-kumo-subtle mt-1">
-							{domains.join(", ")}
-						</p>
-					)}
 				</div>
-
-				{isLoading ? (
-					<div className="flex justify-center py-20">
-						<Loader size="lg" />
-					</div>
-				) : accounts.length > 0 ? (
-					<>
+				<div className="ml-auto flex items-center gap-2">
 					{accounts.length > 1 && (
-						<RouterLink
-							to="/all/inbox"
-							className="group mb-4 flex items-center gap-4 rounded-xl border border-kumo-line bg-kumo-base px-5 py-4 no-underline transition-colors hover:bg-kumo-tint"
-						>
-							<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-kumo-brand text-white">
-								<StackIcon size={20} weight="bold" />
-							</div>
-							<div className="min-w-0 flex-1">
-								<div className="text-sm font-semibold text-kumo-default">All inboxes</div>
-								<div className="text-sm text-kumo-subtle">
-									Every mailbox in one list ({accounts.length} mailboxes)
-								</div>
-							</div>
-							<CaretRightIcon size={16} className="text-kumo-subtle" />
+						<RouterLink to="/all/inbox" className="btn no-underline">
+							<StackIcon size={14} />
+							Open all mailboxes
 						</RouterLink>
 					)}
-					<div className="rounded-xl border border-kumo-line bg-kumo-base overflow-hidden">
-						{accounts.map((account, idx) => (
-							<RouterLink
-								key={account.id}
-								to={`/mailbox/${account.id}`}
-								className={`group flex items-center gap-4 px-5 py-4 no-underline transition-colors hover:bg-kumo-tint ${
-									idx > 0 ? "border-t border-kumo-line" : ""
-								}`}
-							>
-								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-kumo-fill text-sm font-bold text-kumo-default">
-									{account.name.charAt(0).toUpperCase()}
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="text-sm font-medium text-kumo-default truncate">
-										{account.name}
-									</div>
-									<div className="text-sm text-kumo-subtle">
-										{account.email}
-									</div>
-								</div>
-								{!isConfigured && (
-									<Button
-										variant="ghost"
-										size="sm"
-										shape="square"
-										icon={<TrashIcon size={16} />}
-										aria-label={`Delete mailbox ${account.email}`}
-										onClick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											setMailboxToDelete({
-												id: account.id,
-												email: account.email,
-											});
-											setIsDeleteOpen(true);
-										}}
-									/>
-								)}
-							</RouterLink>
-						))}
+					{!isConfigured && (
+						<button type="button" className="btn btn-primary" onClick={() => setIsCreateOpen(true)}>
+							<PlusIcon size={14} weight="bold" />
+							New mailbox
+						</button>
+					)}
+				</div>
+			</header>
+
+			{isLoading ? (
+				<div className="flex justify-center py-20">
+					<Loader size="lg" />
+				</div>
+			) : accounts.length > 0 ? (
+				<>
+					<div className="stat-strip">
+						<DirStat label="Mailboxes" value={accounts.length} />
+						<DirStat label="Inbox unread" value={inboxUnread} accent={inboxUnread > 0} />
+						<DirStat label="Catch-all unread" value={otherUnread} />
+						<DirStat label="Domains" value={allDomains.length} />
 					</div>
-					</>
-				) : (
-					<div className="rounded-xl border border-kumo-line bg-kumo-base py-16 px-6">
-						<div className="flex flex-col items-center text-center">
-							<div className="mb-4">
-								<EnvelopeIcon
-									size={48}
-									weight="thin"
-									className="text-kumo-subtle"
-								/>
-							</div>
-							<h3 className="text-base font-semibold text-kumo-default mb-1.5">
-								No mailboxes yet
-							</h3>
-							<p className="text-sm text-kumo-subtle max-w-sm mb-5">
-								{isConfigured
-									? "Your email routing is configured but no mailboxes have been created yet. They will appear here automatically."
-									: "Create a mailbox to start sending and receiving emails with your domain."}
-							</p>
-							{!isConfigured && (
-								<Button
-									variant="primary"
-									icon={<PlusIcon size={16} />}
-									onClick={() => setIsCreateOpen(true)}
-								>
-									Create Mailbox
-								</Button>
-							)}
+
+					<section aria-labelledby="dir-mailboxes">
+						<h2 id="dir-mailboxes" className="px-5 pt-5 pb-2 text-[13px] font-semibold text-kumo-default">
+							Mailboxes
+						</h2>
+						{/* Desktop: table */}
+						<div className="hidden md:block border-t border-kumo-line">
+							<table className="ops-table">
+								<thead>
+									<tr>
+										<th>Mailbox</th>
+										<th className="!text-right">Inbox unread</th>
+										<th className="!text-right">Catch-all unread</th>
+										<th>Burners</th>
+										<th>Catch-all route</th>
+										<th className="w-[120px]"><span className="sr-only">Actions</span></th>
+									</tr>
+								</thead>
+								<tbody>
+									{accounts.map((account) => {
+										const route = catchAllTarget(account.email);
+										const inbox = unread(account.id, Folders.INBOX);
+										return (
+											<tr key={account.id}>
+												<td>
+													<RouterLink to={`/mailbox/${account.id}`} className="flex items-center gap-2.5 no-underline min-w-0 group/link">
+														<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(account.id)} 60% 48%)` }} />
+														<span className="min-w-0">
+															<span className="block ops-mono text-[12.5px] text-kumo-default truncate group-hover/link:text-kumo-link group-hover/link:underline">{account.email}</span>
+															{account.name && account.name !== account.email && <span className="block text-[11px] text-kumo-subtle truncate">{account.name}</span>}
+														</span>
+													</RouterLink>
+												</td>
+												<td className={`num ${inbox > 0 ? "font-semibold text-kumo-brand" : "text-kumo-subtle"}`}>{inbox.toLocaleString()}</td>
+												<td className="num text-kumo-subtle">{unread(account.id, Folders.OTHER).toLocaleString()}</td>
+												<td>
+													<BurnerCell mailboxId={account.id} />
+												</td>
+												<td>
+													{route ? (
+														<span className="chip chip-accent ops-mono !font-normal">*@{route}</span>
+													) : (
+														<span className="text-kumo-subtle text-xs">—</span>
+													)}
+												</td>
+												<td>
+													<div className="flex items-center justify-end gap-1">
+														<RouterLink to={`/mailbox/${account.id}`} className="btn btn-ghost !h-7 !px-2 !text-xs no-underline">
+															Open
+															<ArrowRightIcon size={12} />
+														</RouterLink>
+														{!isConfigured && (
+															<button type="button" className="icon-btn !h-7 !w-7 hover:!text-[var(--ops-bad)]" aria-label={`Delete mailbox ${account.email}`} title="Delete mailbox" onClick={() => askDelete(account)}>
+																<TrashIcon size={14} />
+															</button>
+														)}
+													</div>
+												</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
 						</div>
+						{/* Phone: stacked rows */}
+						<ul className="md:hidden border-t border-kumo-line divide-y divide-kumo-line">
+							{accounts.map((account) => {
+								const inbox = unread(account.id, Folders.INBOX);
+								const route = catchAllTarget(account.email);
+								return (
+									<li key={account.id} className="flex items-center">
+										<RouterLink to={`/mailbox/${account.id}`} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 no-underline active:bg-kumo-tint">
+											<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(account.id)} 60% 48%)` }} />
+											<span className="min-w-0 flex-1">
+												<span className="block ops-mono text-[13px] text-kumo-default truncate">{account.email}</span>
+												<span className="block text-xs text-kumo-subtle truncate">
+													{route ? `Collects *@${route}` : account.name !== account.email ? account.name : "Mailbox"}
+												</span>
+											</span>
+											{inbox > 0 && <span className="nav-count !bg-kumo-brand !text-kumo-inverse">{inbox}</span>}
+											<CaretRightIcon size={14} className="text-kumo-subtle" />
+										</RouterLink>
+										{!isConfigured && (
+											<button type="button" className="icon-btn mr-1" aria-label={`Delete mailbox ${account.email}`} onClick={() => askDelete(account)}>
+												<TrashIcon size={18} />
+											</button>
+										)}
+									</li>
+								);
+							})}
+						</ul>
+					</section>
+
+					{catchAll.length > 0 && (
+						<section aria-labelledby="dir-routing" className="pb-10">
+							<h2 id="dir-routing" className="px-5 pt-6 pb-1 text-[13px] font-semibold text-kumo-default">
+								Domain routing
+							</h2>
+							<p className="px-5 pb-2 text-xs text-kumo-subtle max-w-2xl">
+								Where mail to an unknown address on each domain goes. Change a route in the collecting mailbox's Routing &amp; settings.
+							</p>
+							<div className="border-t border-kumo-line overflow-x-auto">
+								<table className="ops-table">
+									<thead>
+										<tr>
+											<th>Domain</th>
+											<th>Unknown addresses go to</th>
+											<th className="!text-right">Mailboxes</th>
+											<th>Source</th>
+										</tr>
+									</thead>
+									<tbody>
+										{catchAll.map((c) => (
+											<tr key={c.domain}>
+												<td className="ops-mono text-[12.5px]">@{c.domain}</td>
+												<td>
+													{c.mailboxId ? (
+														<RouterLink to={`/mailbox/${encodeURIComponent(c.mailboxId)}/settings`} className="inline-flex items-center gap-1.5 ops-mono text-[12.5px] text-kumo-default no-underline hover:text-kumo-link hover:underline">
+															{c.mailboxId}
+															<span className="font-sans text-kumo-subtle">/ Other addresses</span>
+														</RouterLink>
+													) : (
+														<span className="chip chip-bad">Rejected</span>
+													)}
+												</td>
+												<td className="num">{c.mailboxes.length}</td>
+												<td>{c.configured ? <span className="chip chip-ok">Configured</span> : <span className="chip">Default</span>}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</section>
+					)}
+				</>
+			) : (
+				<div className="px-6 py-20">
+					<div className="flex flex-col items-center text-center">
+						<div className="mb-3 h-11 w-11 rounded-lg border border-kumo-line bg-kumo-tint flex items-center justify-center text-kumo-subtle">
+							<EnvelopeIcon size={22} />
+						</div>
+						<h3 className="text-sm font-semibold text-kumo-default mb-1">No mailboxes yet</h3>
+						<p className="text-[13px] leading-relaxed text-kumo-subtle max-w-sm mb-5">
+							{isConfigured
+								? "Email routing is configured. The mailboxes are being created and will appear here."
+								: "Create a mailbox for an address on your domain. Each mailbox gets its own storage, agent, burner addresses and queues."}
+						</p>
+						{!isConfigured && (
+							<button type="button" className="btn btn-primary" onClick={() => setIsCreateOpen(true)}>
+								<PlusIcon size={14} weight="bold" />
+								Create mailbox
+							</button>
+						)}
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 
 			{/* Create Dialog */}
 			<Dialog.Root open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -273,7 +386,7 @@ export default function HomeRoute() {
 						)}
 						<div>
 							<span className="text-sm font-medium text-kumo-default mb-1.5 block">
-								Email Address
+								Address
 							</span>
 							<div className="flex items-center gap-2">
 								<div className="flex-1">
@@ -311,7 +424,7 @@ export default function HomeRoute() {
 							</div>
 						</div>
 						<Input
-							label="Display Name (optional)"
+							label="Display name (optional)"
 							placeholder="Info"
 							size="sm"
 							value={newName}
@@ -378,5 +491,31 @@ export default function HomeRoute() {
 				</Dialog>
 			</Dialog.Root>
 		</div>
+	);
+}
+
+function DirStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+	return (
+		<div className="stat">
+			<div className="stat-label">{label}</div>
+			<div className={`stat-value ${accent ? "text-kumo-brand" : ""}`}>{value.toLocaleString()}</div>
+		</div>
+	);
+}
+
+/** Active / total burner addresses of one mailbox. */
+function BurnerCell({ mailboxId }: { mailboxId: string }) {
+	const { data } = useBurners(mailboxId);
+	if (!data) return <span className="text-xs text-kumo-subtle">…</span>;
+	const active = data.filter((b) => b.enabled).length;
+	return (
+		<RouterLink to={`/mailbox/${encodeURIComponent(mailboxId)}/burners`} className="inline-flex items-center gap-1.5 no-underline text-xs text-kumo-strong hover:text-kumo-link">
+			<FireIcon size={13} className="text-kumo-subtle" />
+			<span className="ops-mono tabular">
+				{active}
+				<span className="text-kumo-subtle">/{data.length}</span>
+			</span>
+			<span className="text-kumo-subtle">active</span>
+		</RouterLink>
 	);
 }

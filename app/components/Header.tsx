@@ -3,22 +3,28 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import {
+	CaretRightIcon,
+	CaretUpDownIcon,
 	CheckIcon,
-	EnvelopeSimpleIcon,
-	FireIcon,
+	FunnelIcon,
 	GearSixIcon,
 	KeyboardIcon,
 	ListIcon,
 	MagnifyingGlassIcon,
 	RobotIcon,
+	SidebarSimpleIcon,
 	SlidersHorizontalIcon,
+	SquaresFourIcon,
 	StackIcon,
+	TrayArrowDownIcon,
 	XIcon,
 } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import Avatar from "~/components/Avatar";
+import { mailboxHue } from "~/components/EmailListRow";
 import Menu from "~/components/Menu";
+import { NAV_FOLDERS, useActiveNav } from "~/components/NavItems";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useUIStore } from "~/hooks/useUIStore";
 import { useMailboxes } from "~/queries/mailboxes";
@@ -56,19 +62,14 @@ function SearchOptions({ initial, onSearch, onClose }: { initial: string; onSear
 	};
 
 	const row = (label: string, value: string, set: (v: string) => void, type = "text") => (
-		<label className="flex items-end gap-4">
-			<span className="w-28 shrink-0 text-sm text-kumo-strong pb-1.5">{label}</span>
-			<input
-				type={type}
-				value={value}
-				onChange={(e) => set(e.target.value)}
-				className="flex-1 min-w-0 h-8 bg-transparent border-0 border-b border-kumo-line focus:border-kumo-brand outline-none text-sm text-kumo-default"
-			/>
+		<label className="flex items-center gap-3">
+			<span className="w-24 shrink-0 text-xs font-semibold text-kumo-strong">{label}</span>
+			<input type={type} value={value} onChange={(e) => set(e.target.value)} className="field flex-1 min-w-0" />
 		</label>
 	);
 
 	return (
-		<form onSubmit={submit} className="menu absolute left-0 right-0 top-full mt-1 p-5 space-y-3 z-50" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+		<form onSubmit={submit} className="menu absolute left-0 right-0 top-full mt-1 !p-4 space-y-2.5 z-50" onKeyDown={(e) => e.key === "Escape" && onClose()}>
 			{row("From", from, setFrom)}
 			{row("To", to, setTo)}
 			{row("Subject", subject, setSubject)}
@@ -78,21 +79,21 @@ function SearchOptions({ initial, onSearch, onClose }: { initial: string; onSear
 				<div className="flex-1">{row("Before", before, setBefore, "date")}</div>
 			</div>
 			<div className="flex items-center gap-6 pt-1">
-				<label className="flex items-center gap-2 text-sm text-kumo-default cursor-pointer">
+				<label className="flex items-center gap-2 text-[13px] text-kumo-default cursor-pointer">
 					<input type="checkbox" checked={hasAttachment} onChange={(e) => setHasAttachment(e.target.checked)} className="h-4 w-4 accent-[var(--color-kumo-brand)]" />
 					Has attachment
 				</label>
-				<label className="flex items-center gap-2 text-sm text-kumo-default cursor-pointer">
+				<label className="flex items-center gap-2 text-[13px] text-kumo-default cursor-pointer">
 					<input type="checkbox" checked={unread} onChange={(e) => setUnread(e.target.checked)} className="h-4 w-4 accent-[var(--color-kumo-brand)]" />
 					Unread only
 				</label>
 			</div>
 			<div className="flex justify-end gap-2 pt-2">
-				<button type="button" onClick={onClose} className="h-9 px-4 rounded-full border-0 bg-transparent text-sm font-medium text-kumo-link cursor-pointer hover:bg-kumo-tint">
+				<button type="button" onClick={onClose} className="btn btn-ghost">
 					Cancel
 				</button>
-				<button type="submit" className="h-9 px-6 rounded-full border-0 bg-kumo-brand text-kumo-inverse text-sm font-medium cursor-pointer hover:shadow-md">
-					Search
+				<button type="submit" className="btn btn-primary">
+					Run search
 				</button>
 			</div>
 		</form>
@@ -100,6 +101,18 @@ function SearchOptions({ initial, onSearch, onClose }: { initial: string; onSear
 }
 
 export const SEARCH_INPUT_ID = "mail-search-input";
+
+/** Human name of the section the URL points at, for the breadcrumb. */
+function useSectionName(): string | null {
+	const { pathname, search } = useLocation();
+	const active = useActiveNav();
+	if (pathname.endsWith("/search")) return new URLSearchParams(search).get("q") === "is:starred" ? "Starred" : "Search";
+	if (active === "burners") return "Burner addresses";
+	if (active === "settings") return "Routing & settings";
+	const folder = NAV_FOLDERS.find((f) => f.id === active);
+	if (folder) return folder.label;
+	return active ? decodeURIComponent(active) : null;
+}
 
 export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => void }) {
 	const [searchQuery, setSearchQuery] = useState("");
@@ -118,8 +131,10 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 		selectedEmailId,
 		readingPane,
 		setReadingPane,
+		sidebarCollapsed,
 	} = useUIStore();
 	const { data: mailboxes = [] } = useMailboxes();
+	const section = useSectionName();
 	const isUnified = !mailboxId;
 	const searchPath = isUnified ? "/all/search" : `/mailbox/${mailboxId}/search`;
 	const inboxPath = isUnified ? "/all/inbox" : `/mailbox/${mailboxId}/emails/inbox`;
@@ -160,66 +175,87 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 	};
 
 	const handleAgentClick = () => (isLg ? toggleAgentPanel() : openMobileAgent());
-	const current = mailboxId ?? "All inboxes";
+	const current = mailboxId ?? "All mailboxes";
 
-	const accountMenu = (
+	const scopeMenu = (compact: boolean) => (
 		<Menu
-			label="Mailboxes"
-			header={
-				<div className="px-4 pt-2 pb-3 text-center border-b border-kumo-line mb-1">
-					<div className="mx-auto mb-2 w-fit">{mailboxId ? <Avatar sender={mailboxId} size={56} /> : <div className="h-14 w-14 rounded-full bg-kumo-fill flex items-center justify-center"><StackIcon size={26} /></div>}</div>
-					<div className="text-sm font-medium text-kumo-default truncate">{current}</div>
-				</div>
-			}
+			label="Switch scope"
+			align="left"
+			header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Switch scope</div>}
 			items={[
-				{ label: "All inboxes", icon: <StackIcon size={18} />, onSelect: () => navigate("/all/inbox") },
-				...mailboxes.map((m) => ({ label: m.email, icon: <Avatar sender={m.email} size={22} />, onSelect: () => navigate(`/mailbox/${encodeURIComponent(m.id)}/emails/inbox`) })),
+				{ label: "All mailboxes", icon: <StackIcon size={16} />, onSelect: () => navigate("/all/inbox") },
+				...mailboxes.map((m) => ({
+					label: m.email,
+					icon: <span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(m.id)} 60% 48%)` }} />,
+					onSelect: () => navigate(`/mailbox/${encodeURIComponent(m.id)}/emails/inbox`),
+				})),
 				null,
-				{ label: "Agent", icon: <RobotIcon size={18} />, onSelect: handleAgentClick },
-				{
-					label: "Burner addresses",
-					icon: <FireIcon size={18} />,
-					onSelect: () => navigate(mailboxId ? `/mailbox/${mailboxId}/burners` : "/all/burners"),
-				},
-				...(mailboxId ? [{ label: "Mailbox settings", icon: <GearSixIcon size={18} />, onSelect: () => navigate(`/mailbox/${mailboxId}/settings`) }] : []),
-				{ label: "Manage mailboxes", icon: <EnvelopeSimpleIcon size={18} />, onSelect: () => navigate("/") },
+				{ label: "Mailbox directory", icon: <SquaresFourIcon size={16} />, onSelect: () => navigate("/") },
 			]}
-			trigger={(p) => (
-				<button type="button" {...p} aria-label={`Mailbox: ${current}`} title={current} className="shrink-0 h-10 w-10 md:h-8 md:w-8 rounded-full border-0 p-0 bg-transparent cursor-pointer flex items-center justify-center hover:ring-4 hover:ring-black/5">
-					{mailboxId ? <Avatar sender={mailboxId} size={isLg ? 32 : 32} /> : <span className="h-8 w-8 rounded-full bg-kumo-brand text-kumo-inverse flex items-center justify-center"><StackIcon size={18} /></span>}
-				</button>
-			)}
+			trigger={(p) =>
+				compact ? (
+					<button type="button" {...p} aria-label={`Scope: ${current}`} title={current} className="icon-btn">
+						{mailboxId ? <Avatar sender={mailboxId} size={28} /> : <StackIcon size={20} />}
+					</button>
+				) : (
+					<button
+						type="button"
+						{...p}
+						aria-label={`Scope: ${current}`}
+						className="flex items-center gap-2 h-8 max-w-[18rem] pl-2 pr-1.5 rounded-md border border-[var(--ops-line-strong)] bg-kumo-base cursor-pointer hover:bg-kumo-tint text-[13px] text-kumo-default"
+					>
+						{mailboxId ? (
+							<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(mailboxId)} 60% 48%)` }} />
+						) : (
+							<StackIcon size={15} className="text-kumo-subtle shrink-0" />
+						)}
+						<span className={`truncate ${mailboxId ? "ops-mono" : "font-semibold"}`}>{current}</span>
+						<CaretUpDownIcon size={14} className="text-kumo-subtle shrink-0" />
+					</button>
+				)
+			}
 		/>
 	);
 
 	return (
 		<header
-			className={`items-center gap-2 h-16 px-2 md:px-3 shrink-0 bg-kumo-recessed ${
-				// On phones the reader is full screen, Gmail-style: no search bar.
+			className={`items-center gap-2 h-14 md:h-12 px-2 md:px-0 md:pr-2 shrink-0 bg-kumo-base border-b border-kumo-line ${
+				// On phones the reader is full screen: no search bar.
 				selectedEmailId ? "hidden md:flex" : "flex"
 			}`}
 		>
-			{/* Desktop: menu + product name */}
-			<div className="hidden md:flex items-center gap-1 w-[232px] shrink-0 pl-1">
-				<button type="button" className="icon-btn !h-12 !w-12" aria-label="Main menu" title="Main menu" onClick={toggleSidebarCollapsed}>
-					<ListIcon size={22} />
+			{/* Desktop: rail toggle + product */}
+			<div className={`hidden md:flex items-center gap-1.5 shrink-0 h-full border-r border-kumo-line transition-[width] duration-200 ${sidebarCollapsed ? "w-[56px] justify-center" : "w-[232px] pl-2 pr-3"}`}>
+				<button type="button" className="icon-btn" aria-label="Collapse navigation" title="Collapse navigation" onClick={toggleSidebarCollapsed}>
+					<SidebarSimpleIcon size={18} />
 				</button>
-				<button type="button" onClick={() => navigate(inboxPath)} className="flex items-center gap-2 border-0 bg-transparent cursor-pointer pl-1">
-					<span className="h-8 w-8 rounded-lg bg-kumo-brand text-kumo-inverse flex items-center justify-center">
-						<EnvelopeSimpleIcon size={20} weight="fill" />
+				{!sidebarCollapsed && <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2 border-0 bg-transparent cursor-pointer p-0 min-w-0" title="Mailbox directory">
+					<span className="h-6 w-6 rounded-[5px] bg-kumo-brand text-kumo-inverse flex items-center justify-center shrink-0">
+						<TrayArrowDownIcon size={15} weight="bold" />
 					</span>
-					<span className="text-[22px] text-kumo-strong">Inbox</span>
-				</button>
+					<span className="text-[13px] font-semibold tracking-[-0.01em] text-kumo-default truncate">Agentic Inbox</span>
+				</button>}
 			</div>
 
+			{/* Desktop: scope + breadcrumb */}
+			<nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-1.5 pl-3 min-w-0 shrink">
+				{scopeMenu(false)}
+				{section && (
+					<>
+						<CaretRightIcon size={12} className="text-kumo-subtle shrink-0" />
+						<span className="text-[13px] font-semibold text-kumo-default truncate" aria-current="page">{section}</span>
+					</>
+				)}
+			</nav>
+
 			{/* Search */}
-			<div ref={searchBoxRef} className="relative flex-1 min-w-0 max-w-[720px]">
-				<div className="flex items-center h-12 rounded-full bg-[light-dark(#e9eef6,#2d2f31)] focus-within:bg-kumo-elevated focus-within:shadow-[0_1px_1px_0_rgba(65,69,73,0.3),0_1px_3px_1px_rgba(65,69,73,0.15)] transition-[background,box-shadow]">
-					<button type="button" onClick={toggleSidebar} aria-label="Open navigation drawer" className="md:hidden icon-btn !h-12 !w-12 ml-0.5">
+			<div ref={searchBoxRef} className="relative flex-1 min-w-0 md:max-w-[560px] md:ml-auto">
+				<div className="flex items-center h-11 md:h-8 rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand focus-within:shadow-[0_0_0_3px_light-dark(rgb(11_110_120/0.15),rgb(54_170_180/0.25))] transition-[border-color,box-shadow]">
+					<button type="button" onClick={toggleSidebar} aria-label="Open navigation drawer" className="md:hidden icon-btn">
 						<ListIcon size={22} />
 					</button>
-					<button type="button" onClick={() => search(searchQuery)} aria-label="Search" className="hidden md:inline-flex icon-btn !h-12 !w-12 ml-1">
-						<MagnifyingGlassIcon size={20} />
+					<button type="button" onClick={() => search(searchQuery)} aria-label="Search" className="hidden md:inline-flex icon-btn !h-7 !w-8">
+						<MagnifyingGlassIcon size={15} />
 					</button>
 					<input
 						id={SEARCH_INPUT_ID}
@@ -229,61 +265,64 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 						autoCorrect="off"
 						spellCheck={false}
 						aria-label="Search mail"
-						placeholder={isUnified ? "Search all mailboxes" : "Search in mail"}
+						placeholder={isUnified ? "Search all mailboxes" : "Search this mailbox"}
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
-						className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-base text-kumo-default placeholder:text-kumo-strong px-1 [&::-webkit-search-cancel-button]:hidden"
+						className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-base md:text-[13px] text-kumo-default placeholder:text-kumo-subtle px-1 [&::-webkit-search-cancel-button]:hidden"
 					/>
-					{searchQuery && (
-						<button type="button" onClick={clearSearch} className="icon-btn" aria-label="Clear search" title="Clear search">
-							<XIcon size={18} />
+					{searchQuery ? (
+						<button type="button" onClick={clearSearch} className="icon-btn md:!h-7 md:!w-7" aria-label="Clear search" title="Clear search">
+							<XIcon size={14} />
 						</button>
+					) : (
+						<kbd className="hidden md:inline-flex mr-1" title="Press / to search">/</kbd>
 					)}
 					<button
 						type="button"
 						onClick={() => setShowOptions((v) => !v)}
-						className="hidden md:inline-flex icon-btn mr-1"
-						aria-label="Show search options"
-						title="Show search options"
+						className="hidden md:inline-flex icon-btn !h-7 !w-7 mr-0.5"
+						aria-label="Search filters"
+						title="Search filters"
 						aria-expanded={showOptions}
 					>
-						<SlidersHorizontalIcon size={20} />
+						<FunnelIcon size={15} />
 					</button>
-					<div className="md:hidden pr-1.5">{accountMenu}</div>
+					<div className="md:hidden pr-1">{scopeMenu(true)}</div>
 				</div>
 				{showOptions && <SearchOptions key={searchQuery} initial={searchQuery} onSearch={search} onClose={() => setShowOptions(false)} />}
 			</div>
 
 			{/* Desktop: right side */}
-			<div className="hidden md:flex items-center gap-0.5 ml-auto shrink-0 pr-1">
+			<div className="hidden md:flex items-center gap-1 shrink-0 pl-2">
 				<button
 					type="button"
-					className={`icon-btn !h-10 !w-10 ${isAgentPanelOpen && isLg ? "!bg-[var(--nav-active)] !text-[var(--nav-active-text)]" : ""}`}
+					className={`btn ${isAgentPanelOpen && isLg ? "!border-[var(--ops-agent)] !text-[var(--ops-agent)] !bg-[var(--ops-agent-tint)]" : "btn-ghost"}`}
 					onClick={handleAgentClick}
-					aria-label={isAgentPanelOpen ? "Hide agent" : "Show agent"}
-					title={isAgentPanelOpen ? "Hide agent" : "Show agent"}
+					aria-label={isAgentPanelOpen && isLg ? "Hide agent console" : "Show agent console"}
+					title={isAgentPanelOpen && isLg ? "Hide agent console" : "Show agent console"}
 					aria-pressed={isAgentPanelOpen && isLg}
 				>
-					<RobotIcon size={22} />
+					<RobotIcon size={16} className="text-[var(--ops-agent)]" />
+					<span className="hidden lg:inline">Agent</span>
 				</button>
 				<Menu
-					label="Quick settings"
-					header={<div className="px-4 pt-1 pb-2 text-xs font-medium uppercase tracking-wide text-kumo-subtle">Reading pane</div>}
+					label="View options"
+					header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Reading pane</div>}
 					items={[
-						{ label: "No split", icon: readingPane === "none" ? <CheckIcon size={18} /> : <span className="w-[18px]" />, onSelect: () => setReadingPane("none") },
-						{ label: "Right of inbox", icon: readingPane === "right" ? <CheckIcon size={18} /> : <span className="w-[18px]" />, onSelect: () => setReadingPane("right") },
+						{ label: "Full-width list", icon: readingPane === "none" ? <CheckIcon size={16} /> : <span className="w-4" />, onSelect: () => setReadingPane("none") },
+						{ label: "Split: list and reader", icon: readingPane === "right" ? <CheckIcon size={16} /> : <span className="w-4" />, onSelect: () => setReadingPane("right") },
 						null,
-						...(onShowShortcuts ? [{ label: "Keyboard shortcuts", icon: <KeyboardIcon size={18} />, onSelect: onShowShortcuts }] : []),
-						...(mailboxId ? [{ label: "See all settings", icon: <GearSixIcon size={18} />, onSelect: () => navigate(`/mailbox/${mailboxId}/settings`) }] : []),
+						...(onShowShortcuts ? [{ label: "Keyboard shortcuts", icon: <KeyboardIcon size={16} />, onSelect: onShowShortcuts }] : []),
+						...(mailboxId ? [{ label: "Routing & settings", icon: <GearSixIcon size={16} />, onSelect: () => navigate(`/mailbox/${mailboxId}/settings`) }] : []),
+						{ label: "Mailbox directory", icon: <SquaresFourIcon size={16} />, onSelect: () => navigate("/") },
 					]}
 					trigger={(p) => (
-						<button type="button" {...p} className="icon-btn !h-10 !w-10" aria-label="Settings" title="Settings">
-							<GearSixIcon size={22} />
+						<button type="button" {...p} className="icon-btn" aria-label="View options" title="View options">
+							<SlidersHorizontalIcon size={18} />
 						</button>
 					)}
 				/>
-				<div className="pl-2">{accountMenu}</div>
 			</div>
 		</header>
 	);

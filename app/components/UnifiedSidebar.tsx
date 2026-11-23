@@ -2,12 +2,10 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { CaretLeftIcon, FireIcon } from "@phosphor-icons/react";
-import { Link } from "react-router";
+import { FireIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import { Folders } from "shared/folders";
-import { mailboxHue } from "~/components/EmailListRow";
-import { ComposePill, NAV_FOLDERS, NavPill, useActiveNav } from "~/components/NavItems";
-import { useUIStore } from "~/hooks/useUIStore";
+import { mailboxHue, mailboxShortName } from "~/components/EmailListRow";
+import { AutomationNav, ComposePill, NAV_FOLDERS, NavPill, NavSection, useActiveNav } from "~/components/NavItems";
 import type { MailboxSummary } from "~/types";
 
 function unreadIn(summary: MailboxSummary, folderId: string) {
@@ -23,66 +21,70 @@ export default function UnifiedSidebar({
 	onCompose: () => void;
 	collapsed?: boolean;
 }) {
-	const closeSidebar = useUIStore((s) => s.closeSidebar);
 	const active = useActiveNav();
 	const total = (id: string) =>
 		id === Folders.SENT || id === Folders.TRASH || id === "starred" ? 0 : summaries.reduce((n, m) => n + unreadIn(m, id), 0);
 
-	return (
-		<aside className="h-full w-full flex flex-col bg-kumo-recessed pt-[env(safe-area-inset-top)] md:pt-0">
-			<div className="md:hidden px-5 pt-4 pb-3 border-b border-kumo-line mb-2">
-				<div className="text-xl text-kumo-strong">Inbox</div>
-				<div className="text-sm text-kumo-subtle mt-0.5">
-					All inboxes · {summaries.length} mailbox{summaries.length === 1 ? "" : "es"}
-				</div>
-			</div>
+	const totalUnread = summaries.reduce((n, m) => n + unreadIn(m, Folders.INBOX), 0);
 
-			<div className={`hidden md:block pt-2 pb-4 ${collapsed ? "pl-2" : "pl-2 pr-4"}`}>
+	return (
+		<aside className="h-full w-full flex flex-col bg-kumo-recessed border-r border-kumo-line pt-[env(safe-area-inset-top)] md:pt-0">
+			{!collapsed && (
+				<div className="px-4 pt-3 pb-2">
+					<div className="text-[11px] font-semibold text-kumo-subtle">Scope</div>
+					<div className="text-[13px] font-semibold text-kumo-default">All mailboxes</div>
+					<div className="text-xs text-kumo-subtle tabular">
+						{summaries.length} mailbox{summaries.length === 1 ? "" : "es"} · {totalUnread.toLocaleString()} unread
+					</div>
+				</div>
+			)}
+
+			<div className={`hidden md:block pt-2 pb-1 ${collapsed ? "px-2" : "px-3"}`}>
 				<ComposePill collapsed={collapsed} onClick={onCompose} disabled={summaries.length === 0} />
 			</div>
 
-			<nav aria-label="Folders" className="flex-1 overflow-y-auto overflow-x-hidden pr-2 md:pr-4 pb-4 space-y-px">
+			<nav aria-label="All mailboxes navigation" className="flex-1 overflow-y-auto overflow-x-hidden pb-3 space-y-px">
+				<NavSection label="Queues" collapsed={collapsed} />
 				{NAV_FOLDERS.map(({ id, label, icon: Icon }) => (
 					<NavPill
 						key={id}
 						to={id === "starred" ? "/all/search?q=is:starred" : `/all/${id}`}
-						label={id === Folders.INBOX ? "All inboxes" : label}
-						icon={<Icon size={20} weight={active === id ? "fill" : "regular"} />}
+						label={label}
+						icon={<Icon size={18} weight={active === id ? "fill" : "regular"} />}
 						count={total(id)}
 						active={active === id}
 						collapsed={collapsed}
 					/>
 				))}
 
-				<NavPill
-					to="/all/burners"
-					label="Burner addresses"
-					icon={<FireIcon size={20} weight={active === "burners" ? "fill" : "regular"} />}
-					active={active === "burners"}
-					collapsed={collapsed}
-				/>
-
-				{!collapsed && <div className="pl-[1.625rem] pt-4 pb-1 text-base text-kumo-default">Mailboxes</div>}
+				<NavSection label="Mailboxes" collapsed={collapsed} />
 				{summaries.map((m) => (
 					<NavPill
 						key={m.id}
 						to={`/mailbox/${encodeURIComponent(m.id)}/emails/inbox`}
-						label={m.email}
-						icon={<span className="h-3 w-3 m-1 rounded-full" style={{ backgroundColor: `hsl(${mailboxHue(m.id)} 65% 50%)` }} />}
+						label={mailboxShortName(m.email)}
+						tooltip={m.email}
+						mono
+						icon={<span className="dot m-[5px]" style={{ backgroundColor: `hsl(${mailboxHue(m.id)} 60% 48%)` }} />}
 						count={unreadIn(m, Folders.INBOX)}
 						active={false}
 						collapsed={collapsed}
 					/>
 				))}
 
-				{!collapsed && (
-					<div className="pt-4 mt-3 border-t border-kumo-line">
-						<Link to="/" onClick={closeSidebar} className="nav-pill">
-							<CaretLeftIcon size={20} />
-							<span>Mailboxes</span>
-						</Link>
-					</div>
-				)}
+				<NavSection label="Identity" collapsed={collapsed} />
+				<NavPill
+					to="/all/burners"
+					label="Burner addresses"
+					icon={<FireIcon size={18} weight={active === "burners" ? "fill" : "regular"} />}
+					active={active === "burners"}
+					collapsed={collapsed}
+				/>
+
+				<AutomationNav collapsed={collapsed} />
+
+				<NavSection label="Workspace" collapsed={collapsed} />
+				<NavPill to="/" label="Mailbox directory" icon={<SquaresFourIcon size={18} />} active={false} collapsed={collapsed} />
 			</nav>
 		</aside>
 	);
