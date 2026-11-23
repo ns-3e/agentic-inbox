@@ -29,8 +29,13 @@ body {
 
 /* ── App shell / mobile ─────────────────────────────────────────── */
 
-/* No rubber-band bounce or scroll chaining anywhere; the app scrolls
-   inside its own panes, never the page. */
+/* The app scrolls inside its own panes, never the page: no rubber-band
+   bounce or browser pull-to-refresh on the document.
+   Do NOT set overscroll-behavior on every element (`*`). On a nested
+   element with overflow other than visible (truncate, overflow-hidden,
+   overflow-x-auto), "none" stops scroll chaining, so the wheel does
+   nothing while the cursor is over that element. Set it only on
+   outermost scroll panes (.page-scroll, PullToRefresh). */
 html,
 body {
   overscroll-behavior: none;
@@ -41,14 +46,12 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }
-* {
-  overscroll-behavior: none;
-}
 
 /* Pages that are allowed to scroll as a whole (home, errors). */
 .page-scroll {
   height: 100dvh;
   overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 /* Full-height app shell that respects the iOS toolbar and notch. */

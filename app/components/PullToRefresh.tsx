@@ -9,8 +9,8 @@ const TRIGGER = 70; // px of pull needed to refresh
 const MAX = 110;
 
 /**
- * Scroll container with a touch pull-to-refresh gesture. Overscroll is
- * disabled globally, so this replaces the browser's own bounce/refresh.
+ * Scroll container with a touch pull-to-refresh gesture. Its own bounce is
+ * off (overscroll-none), so this replaces the browser's bounce/refresh.
  */
 export default function PullToRefresh({
 	onRefresh,
@@ -64,7 +64,7 @@ export default function PullToRefresh({
 	return (
 		<div
 			ref={ref}
-			className={`relative overflow-y-auto ${className}`}
+			className={`relative overflow-y-auto overscroll-none ${className}`}
 			onTouchStart={onTouchStart}
 			onTouchMove={onTouchMove}
 			onTouchEnd={onTouchEnd}
