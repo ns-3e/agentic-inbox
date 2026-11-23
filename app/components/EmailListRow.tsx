@@ -14,7 +14,9 @@ import {
 import { memo, useRef, useState } from "react";
 import { formatListDate } from "shared/dates";
 import Avatar from "~/components/Avatar";
+import { usePreferences } from "~/hooks/usePreferences";
 import { displayName } from "~/lib/address";
+import { hour12For } from "~/lib/preferences";
 import { getSnippetText } from "~/lib/utils";
 import type { Email } from "~/types";
 
@@ -248,7 +250,10 @@ function EmailListRow({
 	swipeLeft,
 	swipeRight,
 }: EmailListRowProps) {
-	const snippet = getSnippetText(email.snippet, 140);
+	const showSnippets = usePreferences((s) => s.showSnippets);
+	const showAwaitingReply = usePreferences((s) => s.showAwaitingReply);
+	const hour12 = hour12For(usePreferences((s) => s.clock));
+	const snippet = showSnippets ? getSnippetText(email.snippet, 140) : "";
 	const unread = emailHasUnread(email);
 	const { offset, animating, active, past, suppressClick, handlers } = useTouch(email, swipeLeft, swipeRight, () =>
 		onToggleCheck(email),
@@ -296,12 +301,12 @@ function EmailListRow({
 		<>
 			{isDraftRow && <span className="chip chip-bad shrink-0">Draft</span>}
 			<span className="truncate">{highlight(people)}</span>
-			{count > 1 && <span className="shrink-0 ops-mono text-[11px] font-normal text-kumo-subtle">{count}</span>}
+			{count > 1 && <span className="shrink-0 ops-mono text-[0.6875rem] font-normal text-kumo-subtle">{count}</span>}
 			{email.has_draft && !isDraftRow && <span className="chip chip-bad shrink-0">Draft</span>}
 		</>
 	);
 
-	const awaitingReply = !!email.needs_reply && !unread && !isDraftRow && email.folder_id !== "sent";
+	const awaitingReply = showAwaitingReply && !!email.needs_reply && !unread && !isDraftRow && email.folder_id !== "sent";
 	const status = awaitingReply ? (
 		<span className="chip chip-warn shrink-0" title="You read this conversation and it has no reply yet">
 			Awaiting reply
@@ -393,11 +398,11 @@ function EmailListRow({
 					</button>
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-1.5">
-							<span className={`flex items-center gap-1.5 min-w-0 text-[15px] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
+							<span className={`flex items-center gap-1.5 min-w-0 text-[0.9375rem] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
 								{senderLabel}
 							</span>
-							<span className={`ml-auto shrink-0 ops-mono tabular text-[11px] ${unread ? "font-semibold text-kumo-brand" : "text-kumo-subtle"}`}>
-								{formatListDate(email.date)}
+							<span className={`ml-auto shrink-0 ops-mono tabular text-[0.6875rem] ${unread ? "font-semibold text-kumo-brand" : "text-kumo-subtle"}`}>
+								{formatListDate(email.date, hour12)}
 							</span>
 						</div>
 						<div className="flex items-center gap-1.5 mt-px">
@@ -416,19 +421,19 @@ function EmailListRow({
 
 				{/* ── Desktop, narrow list next to the reading pane: two lines ── */}
 				{compact && (
-					<div className="hidden md:flex items-start gap-2.5 pl-2 pr-3 py-2 border-b border-kumo-line">
+					<div className="hidden md:flex items-start gap-2.5 pl-2 pr-3 py-[var(--row2-py)] border-b border-kumo-line">
 						<div className="flex flex-col items-center gap-1 pt-px">
 							{checkbox}
 							{star}
 						</div>
 						<div className="min-w-0 flex-1">
-							<div className={`flex items-center gap-2 text-[13px] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
+							<div className={`flex items-center gap-2 text-[0.8125rem] ${unread ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>
 								{unreadMark}
 								<span className="flex items-center gap-1.5 min-w-0">{senderLabel}</span>
-								<span className={`ml-auto shrink-0 ops-mono tabular text-[11px] group-hover:hidden ${unread ? "text-kumo-default" : "text-kumo-subtle"}`}>{formatListDate(email.date)}</span>
+								<span className={`ml-auto shrink-0 ops-mono tabular text-[0.6875rem] group-hover:hidden ${unread ? "text-kumo-default" : "text-kumo-subtle"}`}>{formatListDate(email.date, hour12)}</span>
 								{hoverActions}
 							</div>
-							<div className={`truncate text-[13px] mt-0.5 pl-4 ${unread ? "font-semibold text-kumo-default" : "text-kumo-default"}`}>
+							<div className={`truncate text-[0.8125rem] mt-0.5 pl-4 ${unread ? "font-semibold text-kumo-default" : "text-kumo-default"}`}>
 								{highlight(subject)}
 							</div>
 							<div className="flex items-center gap-2 mt-0.5 pl-4">
@@ -443,7 +448,7 @@ function EmailListRow({
 
 				{/* ── Desktop, full-width list: one grid row per conversation ── */}
 				{!compact && (
-					<div className="hidden md:flex items-center gap-3 h-9 pl-2 pr-3 text-[13px] border-b border-kumo-line">
+					<div className="hidden md:flex items-center gap-3 h-[var(--row-h)] pl-2 pr-3 text-[0.8125rem] border-b border-kumo-line">
 						<div className="flex items-center gap-1 shrink-0">
 							{checkbox}
 							{star}
@@ -464,11 +469,11 @@ function EmailListRow({
 						{status}
 						{email.has_attachment && <PaperclipIcon size={14} className="shrink-0 text-kumo-subtle group-hover:hidden" />}
 						<span
-							className={`w-[76px] shrink-0 text-right ops-mono tabular text-[11px] group-hover:hidden ${
+							className={`w-[76px] shrink-0 text-right ops-mono tabular text-[0.6875rem] group-hover:hidden ${
 								unread ? "font-semibold text-kumo-default" : "text-kumo-subtle"
 							}`}
 						>
-							{formatListDate(email.date)}
+							{formatListDate(email.date, hour12)}
 						</span>
 						{hoverActions}
 					</div>

@@ -4,6 +4,7 @@
 
 import DOMPurify from "dompurify";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePreferences } from "~/hooks/usePreferences";
 import { splitQuotedText } from "~/lib/quote";
 
 interface EmailIframeProps {
@@ -36,6 +37,10 @@ export default function EmailIframe({ body: fullBody, autoSize, trimQuote = true
 	const [showQuote, setShowQuote] = useState(false);
 	const split = useMemo(() => (trimQuote ? splitQuotedText(fullBody) : { body: fullBody, quote: "" }), [fullBody, trimQuote]);
 	const body = showQuote || !split.quote ? fullBody : split.body;
+	// Preferences → Remote images: Block stops tracking pixels until the reader asks.
+	const blockPref = usePreferences((s) => s.remoteImages === "block");
+	const [allowOnce, setAllowOnce] = useState(false);
+	const blocked = blockPref && !allowOnce && hasRemoteImages(fullBody);
 
 	// Listen for height reports from the sandboxed iframe
 	const handleMessage = useCallback(
@@ -76,6 +81,8 @@ export default function EmailIframe({ body: fullBody, autoSize, trimQuote = true
 		});
 
 		const padding = autoSize ? "0" : "24px";
+		// Inline (cid:) images are served by this app, so they always load.
+		const imgSrc = blocked ? `data: cid: ${window.location.origin}` : "data: cid: https: http:";
 
 		// Height-reporting script: sends body.scrollHeight to the parent.
 		// Runs inside the opaque-origin sandbox so it has zero access to
@@ -103,7 +110,7 @@ export default function EmailIframe({ body: fullBody, autoSize, trimQuote = true
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: cid: https: http:; script-src 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src ${imgSrc}; script-src 'unsafe-inline';">
 <base target="_blank">
 <style>
 * { box-sizing: border-box; }
@@ -151,10 +158,18 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 </head>
 <body>${cleanBody}${heightScript}</body>
 </html>`;
-	}, [body, autoSize]);
+	}, [body, autoSize, blocked]);
 
 	return (
 		<>
+			{blocked && (
+				<div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-kumo-line bg-kumo-tint px-3 py-2 text-xs text-kumo-subtle">
+					<span>Remote images are blocked. Senders can use them to see when you open a message.</span>
+					<button type="button" className="btn btn-ghost !h-6 !px-2 !text-xs" onClick={() => setAllowOnce(true)}>
+						Show images
+					</button>
+				</div>
+			)}
 			<iframe
 				key={srcDoc}
 				ref={iframeRef}
@@ -177,4 +192,12 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 			)}
 		</>
 	);
+}
+
+/** True when the HTML loads an image (or CSS background) from the network. */
+export function hasRemoteImages(html: string): boolean {
+	return /<img\b[^>]*\bsrc\s*=\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
+		/url\(\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
+		/\bbackground\s*=\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
+		/\bsrcset\s*=/i.test(html);
 }

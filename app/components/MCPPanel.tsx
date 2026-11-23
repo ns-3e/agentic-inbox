@@ -98,7 +98,7 @@ export default function MCPPanel() {
 		<div className="h-full overflow-y-auto">
 			<section className="px-3 py-3 border-b border-kumo-line space-y-2">
 				<div className="flex items-center gap-2">
-					<span className="text-[13px] font-semibold text-kumo-default">MCP endpoint</span>
+					<span className="text-[0.8125rem] font-semibold text-kumo-default">MCP endpoint</span>
 					<span className="chip">Streamable HTTP</span>
 				</div>
 				<p className="text-xs leading-relaxed text-kumo-subtle m-0">
@@ -146,7 +146,7 @@ export default function MCPPanel() {
 							<CopyButton text={snippets[client]} />
 						</div>
 					</div>
-					<pre className="ops-mono m-0 p-2.5 text-[11px] leading-relaxed whitespace-pre-wrap break-all text-kumo-strong bg-kumo-base max-h-56 overflow-auto">
+					<pre className="ops-mono m-0 p-2.5 text-[0.6875rem] leading-relaxed whitespace-pre-wrap break-all text-kumo-strong bg-kumo-base max-h-56 overflow-auto">
 						{snippets[client]}
 					</pre>
 				</div>
@@ -154,8 +154,8 @@ export default function MCPPanel() {
 
 			<section className="py-3">
 				<div className="flex items-center gap-2 px-3 mb-2">
-					<span className="text-[13px] font-semibold text-kumo-default">Tool catalog</span>
-					<span className="ops-mono tabular text-[11px] text-kumo-subtle">{TOOLS.length} tools</span>
+					<span className="text-[0.8125rem] font-semibold text-kumo-default">Tool catalog</span>
+					<span className="ops-mono tabular text-[0.6875rem] text-kumo-subtle">{TOOLS.length} tools</span>
 				</div>
 				{highRisk > 0 && (
 					<div className="mx-3 mb-2 flex items-start gap-2 rounded-md bg-[var(--ops-warn-tint)] px-2.5 py-2 text-xs leading-relaxed text-[var(--ops-warn)]">
@@ -177,7 +177,7 @@ export default function MCPPanel() {
 							<tr key={tool.name}>
 								<td className="!h-auto !py-1.5">
 									<div className="ops-mono text-xs text-kumo-default">{tool.name}</div>
-									<div className="text-[11px] text-kumo-subtle">{tool.desc}</div>
+									<div className="text-[0.6875rem] text-kumo-subtle">{tool.desc}</div>
 								</td>
 								<td className="text-right !h-auto !py-1.5">
 									<span className={ACCESS[tool.access].chip}>{ACCESS[tool.access].label}</span>

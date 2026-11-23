@@ -32,6 +32,7 @@ import { useListNav } from "~/hooks/useListNav";
 import { type MailTarget, useMailActions } from "~/hooks/useMailActions";
 import { useIsDesktop } from "~/hooks/useMediaQuery";
 import { snackbar } from "~/hooks/useSnackbar";
+import { getPreferences } from "~/hooks/usePreferences";
 import { type ComposeMode, useUIStore } from "~/hooks/useUIStore";
 import { parseAddress } from "~/lib/address";
 import { splitEmailList, toEmailListValue } from "~/lib/utils";
@@ -129,8 +130,9 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 		setUnfolded(false);
 	}, [threadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	// Opened from a link: mark it read.
+	// Opened (from the list, a link, or auto-advance): mark it read, unless Preferences say not to.
 	useEffect(() => {
+		if (!getPreferences().markReadOnOpen) return;
 		if (email && mailboxId && messages.some((m) => !m.read && !draftIds.has(m.id))) {
 			void actions.setRead([{ email: { ...email, thread_count: messages.length }, mailboxId }], true);
 		}
@@ -315,7 +317,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 					<Menu
 						align={isDesktop ? "left" : "right"}
 						label="Move to"
-						header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Move to</div>}
+						header={<div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-semibold text-kumo-subtle">Move to</div>}
 						items={moveTargets.map((f) => ({ label: f.name, onSelect: () => void actions.move([target], f.id, folder) }))}
 						trigger={(p) => (
 							<button type="button" {...p} className="icon-btn" aria-label="Move to" title="Move to">
@@ -342,7 +344,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 				</div>
 				{navIdx >= 0 && (
 					<div className="hidden md:flex ml-auto items-center gap-1 text-xs text-kumo-subtle">
-						<span className="px-2 whitespace-nowrap ops-mono tabular text-[11px]">
+						<span className="px-2 whitespace-nowrap ops-mono tabular text-[0.6875rem]">
 							{navOffset + navIdx} of {navTotal.toLocaleString()}
 						</span>
 						<button type="button" className="icon-btn" aria-label="Newer" title="Newer" disabled={!newer} onClick={() => newer && actions.open(newer)}>
@@ -363,7 +365,7 @@ export default function EmailPanel({ emailId }: { emailId: string }) {
 						<div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-kumo-subtle">
 							{folderLabel && <span className="chip">{folderLabel}</span>}
 							{mailboxId && <MailboxLabel mailboxId={mailboxId} full />}
-							<span className="ops-mono tabular text-[11px]">
+							<span className="ops-mono tabular text-[0.6875rem]">
 								{messages.length} message{messages.length === 1 ? "" : "s"}
 							</span>
 						</div>

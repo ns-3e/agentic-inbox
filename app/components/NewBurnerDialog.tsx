@@ -27,7 +27,7 @@ export default function NewBurnerDialog({
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog size="lg" className="p-6">
 				<Dialog.Title className="text-base font-semibold mb-1">New burner address</Dialog.Title>
-				<p className="text-[13px] text-kumo-subtle mb-5">
+				<p className="text-[0.8125rem] text-kumo-subtle mb-5">
 					Pick a domain, then use a random name or type your own. The new address is copied to the clipboard.
 				</p>
 				{mailboxId ? (
@@ -35,7 +35,7 @@ export default function NewBurnerDialog({
 				) : (
 					<p className="text-sm text-kumo-subtle">Create a mailbox in the Mailbox directory first. Burner addresses belong to a mailbox.</p>
 				)}
-				<div className="mt-4 pt-3 border-t border-kumo-line text-[12px]">
+				<div className="mt-4 pt-3 border-t border-kumo-line text-[0.75rem]">
 					<Link to={manageHref} onClick={() => onOpenChange(false)} className="text-kumo-link no-underline hover:underline">
 						Manage all burner addresses
 					</Link>

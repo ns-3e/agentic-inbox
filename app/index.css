@@ -95,24 +95,31 @@ a {
   --color-kumo-fill: light-dark(#e6e9ed, #262c34);
   --color-kumo-fill-hover: light-dark(#dadfe5, #2f363f);
   --color-kumo-control: light-dark(#ffffff, #11151a);
-  --color-kumo-brand: light-dark(#0b6e78, #36aab4);
-  --color-kumo-brand-hover: light-dark(#095a62, #4fc0c9);
-  --color-kumo-ring: light-dark(#0b6e78, #36aab4);
+  /* Accent and agent colors come from Preferences (inline on <html>);
+     these are the defaults. Every derived token below is mixed from them. */
+  --accent-l: #0b6e78;
+  --accent-d: #36aab4;
+  --agent-l: #6b46d6;
+  --agent-d: #ad97ff;
+  --color-kumo-brand: light-dark(var(--accent-l), var(--accent-d));
+  --color-kumo-brand-hover: light-dark(color-mix(in oklab, var(--accent-l) 84%, black), color-mix(in oklab, var(--accent-d) 82%, white));
+  --color-kumo-ring: light-dark(var(--accent-l), var(--accent-d));
   --color-kumo-line: light-dark(#e1e4e8, #262c33);
   --text-color-kumo-default: light-dark(#14181d, #e4e7ec);
   --text-color-kumo-strong: light-dark(#363d47, #c2c8d1);
   --text-color-kumo-subtle: light-dark(#5a6370, #8f98a5);
-  --text-color-kumo-link: light-dark(#0b6e78, #5cc4cd);
-  --text-color-kumo-brand: light-dark(#0b6e78, #5cc4cd);
+  --text-color-kumo-link: light-dark(var(--accent-l), color-mix(in oklab, var(--accent-d) 85%, white));
+  --text-color-kumo-brand: light-dark(var(--accent-l), color-mix(in oklab, var(--accent-d) 85%, white));
   --text-color-kumo-inverse: light-dark(#ffffff, #071214);
 
   /* Console tokens */
   --ops-line-strong: light-dark(#cdd2d9, #343b44);
   --ops-header: light-dark(#f8f9fa, #12161b);
-  --ops-accent-tint: light-dark(#e2f1f2, #10313a);
-  --ops-accent-text: light-dark(#075158, #8fdde3);
-  --ops-agent: light-dark(#6b46d6, #ad97ff);
-  --ops-agent-tint: light-dark(#f0ebfd, #251d40);
+  --ops-accent-tint: light-dark(color-mix(in oklab, var(--accent-l) 12%, white), color-mix(in oklab, var(--accent-d) 20%, #15191e));
+  --ops-accent-text: light-dark(color-mix(in oklab, var(--accent-l) 78%, black), color-mix(in oklab, var(--accent-d) 62%, white));
+  --ops-focus-ring: light-dark(color-mix(in srgb, var(--accent-l) 16%, transparent), color-mix(in srgb, var(--accent-d) 26%, transparent));
+  --ops-agent: light-dark(var(--agent-l), var(--agent-d));
+  --ops-agent-tint: light-dark(color-mix(in oklab, var(--agent-l) 10%, white), color-mix(in oklab, var(--agent-d) 18%, #15191e));
   --ops-ok: light-dark(#17794a, #55c48b);
   --ops-ok-tint: light-dark(#e3f4ea, #10301f);
   --ops-warn: light-dark(#94560a, #e6a74a);
@@ -134,14 +141,47 @@ a {
   --compose-header: light-dark(#f3f4f6, #1c2127);
   --snackbar-bg: light-dark(#1d2228, #e4e7ec);
   --snackbar-text: light-dark(#f1f3f5, #14181d);
-  --snackbar-action: light-dark(#7fd3da, #0b6e78);
+  --snackbar-action: light-dark(var(--accent-d), var(--accent-l));
   --chip-bg: light-dark(#eef0f3, #232930);
   --chip-border: light-dark(#d5dae0, #39414b);
+
+  /* Density (Preferences → Density) */
+  --row-h: 2.25rem;
+  --row2-py: 0.5rem;
+  --nav-h: 2rem;
+  --table-row-h: 2.5rem;
+}
+[data-density="compact"] {
+  --row-h: 2rem;
+  --row2-py: 0.375rem;
+  --nav-h: 1.75rem;
+  --table-row-h: 2.125rem;
+}
+[data-density="comfortable"] {
+  --row-h: 2.75rem;
+  --row2-py: 0.75rem;
+  --nav-h: 2.25rem;
+  --table-row-h: 3rem;
+}
+
+/* Text size (Preferences → Text size): all type and spacing is in rem. */
+html {
+  font-size: var(--ui-scale, 100%);
+}
+
+/* Preferences → Motion: Reduce. Same effect as the OS setting. */
+[data-motion="reduce"] *,
+[data-motion="reduce"] *::before,
+[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-feature-settings: "cv11", "ss01";
 }
 
@@ -175,7 +215,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  height: 2rem;
+  height: var(--nav-h);
   margin: 0 0.5rem;
   padding: 0 0.5rem 0 0.625rem;
   border-radius: 6px;
@@ -351,7 +391,7 @@ body {
 }
 .field:focus {
   border-color: var(--color-kumo-brand);
-  box-shadow: 0 0 0 3px light-dark(rgb(11 110 120 / 0.15), rgb(54 170 180 / 0.25));
+  box-shadow: 0 0 0 3px var(--ops-focus-ring);
 }
 .field:disabled {
   background: var(--color-kumo-tint);
@@ -426,7 +466,7 @@ textarea.field {
   white-space: nowrap;
 }
 .ops-table td {
-  height: 2.5rem;
+  height: var(--table-row-h);
   padding: 0 0.75rem;
   border-bottom: 1px solid var(--color-kumo-line);
   color: var(--text-color-kumo-default);
@@ -515,6 +555,101 @@ textarea.field {
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--text-color-kumo-subtle);
+}
+
+/* Segmented control (single choice from a few options) */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 6px;
+  border: 1px solid var(--ops-line-strong);
+  background: var(--color-kumo-control);
+}
+.segmented > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--text-color-kumo-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.segmented > button:hover {
+  color: var(--text-color-kumo-default);
+}
+.segmented > button[aria-checked="true"] {
+  background: var(--ops-accent-tint);
+  color: var(--ops-accent-text);
+  font-weight: 600;
+}
+.segmented > button:focus-visible,
+.theme-card:focus-visible,
+.swatch:focus-visible {
+  outline: 2px solid var(--color-kumo-ring);
+  outline-offset: 1px;
+}
+
+/* Selectable preview card (theme, density) */
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--ops-line-strong);
+  background: var(--color-kumo-base);
+  color: var(--text-color-kumo-default);
+  text-align: left;
+  cursor: pointer;
+}
+.theme-card:hover {
+  border-color: light-dark(#b9c0c9, #46505b);
+}
+.theme-card[aria-checked="true"] {
+  border-color: var(--color-kumo-brand);
+  box-shadow: 0 0 0 1px var(--color-kumo-brand);
+}
+
+/* Color choice */
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3125rem;
+  width: 4.5rem;
+  padding: 0.375rem 0.25rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.swatch:hover {
+  background: var(--color-kumo-tint);
+}
+.swatch[aria-checked="true"] {
+  border-color: var(--ops-line-strong);
+  background: var(--color-kumo-tint);
+}
+.swatch-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+.swatch[aria-checked="true"] .swatch-chip {
+  box-shadow: 0 0 0 2px var(--color-kumo-base), 0 0 0 4px var(--text-color-kumo-default);
 }
 
 kbd,

@@ -3,6 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useEffect, useRef } from "react";
+import { getPreferences } from "~/hooks/usePreferences";
 
 /** Keys are matched on `event.key` ("j", "#", "Enter", "I" for Shift+i, "?"). */
 export type HotkeyMap = Record<string, (e: KeyboardEvent) => void>;
@@ -25,7 +26,8 @@ function inOverlay(el: EventTarget | null): boolean {
 }
 
 /**
- * Gmail-style single-key shortcuts. Ignored while typing, with Ctrl/Cmd/Alt,
+ * Gmail-style single-key shortcuts. Off when Preferences → Keyboard shortcuts
+ * is off. Ignored while typing, with Ctrl/Cmd/Alt,
  * or when focus is inside a dialog or the composer. The latest handlers are
  * always used, so callers can pass inline functions.
  */
@@ -36,6 +38,7 @@ export function useHotkeys(map: HotkeyMap, enabled = true) {
 		if (!enabled) return;
 		const onKey = (e: KeyboardEvent) => {
 			if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+			if (!getPreferences().shortcuts) return;
 			if (isTypingTarget(e.target) || inOverlay(e.target)) return;
 			const fn = ref.current[e.key];
 			if (fn) {

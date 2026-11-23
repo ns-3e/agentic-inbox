@@ -365,7 +365,7 @@ function ComposerBody({
 								type="button"
 								onClick={() => void form.send()}
 								disabled={form.isSending}
-								className="h-8 px-4 border-0 bg-transparent text-inherit text-[13px] font-semibold cursor-pointer hover:bg-black/10 disabled:opacity-60"
+								className="h-8 px-4 border-0 bg-transparent text-inherit text-[0.8125rem] font-semibold cursor-pointer hover:bg-black/10 disabled:opacity-60"
 								title="Send (⌘/Ctrl+Enter)"
 							>
 								{form.isSending ? "Sending…" : "Send"}

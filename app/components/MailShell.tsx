@@ -13,6 +13,7 @@ import ShortcutsDialog from "~/components/ShortcutsDialog";
 import UrlStateSync from "~/components/UrlStateSync";
 import { useHotkeys } from "~/hooks/useHotkeys";
 import { useIsDesktop } from "~/hooks/useMediaQuery";
+import { getPreferences } from "~/hooks/usePreferences";
 import { useUIStore } from "~/hooks/useUIStore";
 
 /**
@@ -58,6 +59,7 @@ export default function MailShell({
 			t: go(folderPath("sent")),
 			d: go(folderPath("draft")),
 			a: go("/all/inbox"),
+			",": () => navigate(`${basePath}/preferences`),
 		},
 		isDesktop,
 	);
@@ -65,7 +67,7 @@ export default function MailShell({
 	useEffect(() => {
 		if (!isDesktop) return;
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "s" && Date.now() - gPressed.current < 1500) {
+			if (e.key === "s" && Date.now() - gPressed.current < 1500 && getPreferences().shortcuts) {
 				e.preventDefault();
 				e.stopImmediatePropagation();
 				gPressed.current = 0;

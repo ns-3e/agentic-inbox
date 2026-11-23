@@ -7,6 +7,7 @@ import { CopyIcon, FireIcon, MagnifyingGlassIcon, TrashIcon } from "@phosphor-ic
 import { type ReactNode, useState } from "react";
 import { useParams } from "react-router";
 import { formatListDate } from "shared/dates";
+import { useHour12 } from "~/hooks/usePreferences";
 import BurnerCreateForm from "~/components/BurnerCreateForm";
 import { useBurners, useDeleteBurner, useUpdateBurner } from "~/queries/burners";
 import type { Burner } from "~/types";
@@ -32,6 +33,7 @@ export default function BurnersRoute() {
  */
 export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picker?: ReactNode }) {
 	const toast = useKumoToastManager();
+	const hour12 = useHour12();
 	const { data: burners, isLoading } = useBurners(mailboxId);
 	const updateMutation = useUpdateBurner(mailboxId);
 	const deleteMutation = useDeleteBurner(mailboxId);
@@ -122,7 +124,7 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 								</button>
 							))}
 						</div>
-						<span className="ml-auto ops-mono tabular text-[11px] text-kumo-subtle">
+						<span className="ml-auto ops-mono tabular text-[0.6875rem] text-kumo-subtle">
 							{rows.length} of {all.length}
 						</span>
 					</div>
@@ -139,12 +141,12 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 							<FireIcon size={22} />
 						</div>
 						<div className="text-sm font-semibold text-kumo-default">No burner addresses</div>
-						<p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-kumo-subtle">
+						<p className="mx-auto mt-1 max-w-sm text-[0.8125rem] leading-relaxed text-kumo-subtle">
 							Generate one above for each sign-up or trial. If a site leaks or sells it, turn that one address off; your real address stays clean.
 						</p>
 					</div>
 				) : rows.length === 0 ? (
-					<div className="px-6 py-10 text-center text-[13px] text-kumo-subtle">No burners match this filter.</div>
+					<div className="px-6 py-10 text-center text-[0.8125rem] text-kumo-subtle">No burners match this filter.</div>
 				) : (
 					<>
 						{/* Desktop: table */}
@@ -175,7 +177,7 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 											</div>
 										</td>
 										<td className="max-w-[280px]">
-											<span className={`ops-mono text-[12.5px] truncate block ${b.enabled ? "text-kumo-default" : "text-kumo-subtle line-through"}`} title={b.address}>
+											<span className={`ops-mono text-[0.78125rem] truncate block ${b.enabled ? "text-kumo-default" : "text-kumo-subtle line-through"}`} title={b.address}>
 												{b.address}
 											</span>
 										</td>
@@ -184,8 +186,8 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 										</td>
 										<td className="num">{b.receivedCount.toLocaleString()}</td>
 										<td className={`num ${b.blockedCount > 0 ? "text-[var(--ops-bad)]" : ""}`}>{b.blockedCount.toLocaleString()}</td>
-										<td className="ops-mono tabular text-[11.5px] text-kumo-subtle whitespace-nowrap">{b.lastReceivedAt ? formatListDate(b.lastReceivedAt) : "—"}</td>
-										<td className="ops-mono tabular text-[11.5px] text-kumo-subtle whitespace-nowrap">{formatListDate(b.createdAt)}</td>
+										<td className="ops-mono tabular text-[0.71875rem] text-kumo-subtle whitespace-nowrap">{b.lastReceivedAt ? formatListDate(b.lastReceivedAt, hour12) : "—"}</td>
+										<td className="ops-mono tabular text-[0.71875rem] text-kumo-subtle whitespace-nowrap">{formatListDate(b.createdAt, hour12)}</td>
 										<td>
 											<div className="flex items-center justify-end gap-0.5">
 												<Tooltip content="Copy address" asChild>
@@ -218,14 +220,14 @@ export function BurnerManager({ mailboxId, picker }: { mailboxId?: string; picke
 										<button
 											type="button"
 											onClick={() => void copyAddress(b.address)}
-											className={`ops-mono text-[13px] text-left break-all bg-transparent border-0 p-0 cursor-pointer ${b.enabled ? "text-kumo-default" : "text-kumo-subtle line-through"}`}
+											className={`ops-mono text-[0.8125rem] text-left break-all bg-transparent border-0 p-0 cursor-pointer ${b.enabled ? "text-kumo-default" : "text-kumo-subtle line-through"}`}
 										>
 											{b.address}
 										</button>
-										{b.label && <div className="text-[13px] text-kumo-strong truncate">{b.label}</div>}
-										<div className="mt-0.5 ops-mono tabular text-[11px] text-kumo-subtle">
+										{b.label && <div className="text-[0.8125rem] text-kumo-strong truncate">{b.label}</div>}
+										<div className="mt-0.5 ops-mono tabular text-[0.6875rem] text-kumo-subtle">
 											{b.receivedCount} received{b.blockedCount > 0 ? ` · ${b.blockedCount} blocked` : ""}
-											{b.lastReceivedAt ? ` · last ${formatListDate(b.lastReceivedAt)}` : ""}
+											{b.lastReceivedAt ? ` · last ${formatListDate(b.lastReceivedAt, hour12)}` : ""}
 										</div>
 									</div>
 									<button type="button" className="icon-btn" aria-label={`Delete ${b.address}`} onClick={() => setPendingDelete(b)}>

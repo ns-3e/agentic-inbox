@@ -5,6 +5,7 @@
 import { Badge } from "@cloudflare/kumo";
 import { MailboxLabel } from "~/components/EmailListRow";
 import { formatListDate, getSnippetText } from "~/lib/utils";
+import { useHour12 } from "~/hooks/usePreferences";
 import type { Email } from "~/types";
 
 export function highlightTerms(text: string, query: string): React.ReactNode {
@@ -40,6 +41,7 @@ interface SearchResultRowProps {
 }
 
 export default function SearchResultRow({ email, query, isSelected, isPanelOpen, mailboxId, onOpen }: SearchResultRowProps) {
+	const hour12 = useHour12();
 	const snippet = getSnippetText(email.snippet, 120);
 	const folderName = (email as Email & { folder_name?: string }).folder_name;
 	return (
@@ -50,7 +52,7 @@ export default function SearchResultRow({ email, query, isSelected, isPanelOpen,
 					<span className={`truncate text-sm ${!email.read ? "font-semibold text-kumo-default" : "text-kumo-strong"}`}>{highlightTerms(email.sender.split("@")[0], query)}</span>
 					{mailboxId && <MailboxLabel mailboxId={mailboxId} />}
 					{folderName && <span className="chip">{folderDisplayName(folderName)}</span>}
-					<span className="ops-mono tabular text-[11px] text-kumo-subtle shrink-0 ml-auto">{formatListDate(email.date)}</span>
+					<span className="ops-mono tabular text-[0.6875rem] text-kumo-subtle shrink-0 ml-auto">{formatListDate(email.date, hour12)}</span>
 				</div>
 				<div className={`truncate text-sm mt-0.5 ${!email.read ? "font-medium text-kumo-default" : "text-kumo-subtle"}`}>{highlightTerms(email.subject, query)}</div>
 				{snippet && <div className="truncate text-xs text-kumo-subtle mt-0.5">{highlightTerms(snippet, query)}</div>}

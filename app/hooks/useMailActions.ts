@@ -6,6 +6,8 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { Folders, getFolderDisplayName } from "shared/folders";
 import { emailHasUnread } from "~/components/EmailListRow";
+import { useListNav } from "~/hooks/useListNav";
+import { getPreferences } from "~/hooks/usePreferences";
 import { snackbar } from "~/hooks/useSnackbar";
 import { rowKey, useUIStore } from "~/hooks/useUIStore";
 import { queryKeys } from "~/queries/keys";
@@ -101,12 +103,39 @@ const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? `Convers
  * swipe), the reader toolbar and keyboard shortcuts. Moves show at once,
  * and archive / delete / move offer Undo.
  */
+/**
+ * The conversation to show after the open one is archived or deleted:
+ * the next older or newer one in the visible list, skipping the ones that
+ * are being removed. Null means "go back to the list".
+ */
+export function nextAfterRemoval(
+	openId: string,
+	removed: MailTarget[],
+	mode: "list" | "older" | "newer",
+	items: MailTarget[] = useListNav.getState().items,
+): MailTarget | null {
+	if (mode === "list") return null;
+	const gone = new Set(removed.map((t) => rowKey(t.email)));
+	const idx = items.findIndex((t) => t.email.id === openId);
+	if (idx < 0) return null;
+	const step = mode === "older" ? 1 : -1;
+	for (let i = idx + step; i >= 0 && i < items.length; i += step) {
+		if (!gone.has(rowKey(items[i].email))) return items[i];
+	}
+	return null;
+}
+
 export function useMailActions() {
 	const qc = useQueryClient();
 
 	const leaveReaderIfOpen = useCallback((targets: MailTarget[]) => {
-		const { selectedEmailId, closePanel, checked, setChecked } = useUIStore.getState();
-		if (selectedEmailId && targets.some((t) => t.email.id === selectedEmailId)) closePanel();
+		const { selectedEmailId, closePanel, selectEmail, checked, setChecked } = useUIStore.getState();
+		if (selectedEmailId && targets.some((t) => t.email.id === selectedEmailId)) {
+			// Preferences → After archive or delete: back to the list, or open the next conversation.
+			const next = nextAfterRemoval(selectedEmailId, targets, getPreferences().afterAction);
+			if (next) selectEmail(next.email.id, next.mailboxId);
+			else closePanel();
+		}
 		if (checked.size) {
 			const gone = new Set(targets.map((t) => rowKey(t.email)));
 			setChecked([...checked].filter((k) => !gone.has(k)));
@@ -249,7 +278,7 @@ export function useMailActions() {
 	const open = useCallback(
 		(t: MailTarget) => {
 			useUIStore.getState().selectEmail(t.email.id, t.mailboxId);
-			if (emailHasUnread(t.email)) void setRead([t], true);
+			if (emailHasUnread(t.email) && getPreferences().markReadOnOpen) void setRead([t], true);
 		},
 		[setRead],
 	);

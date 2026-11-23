@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { suggestEmailFix } from "shared/email-typos";
 import { snackbar } from "~/hooks/useSnackbar";
 import { type ComposeAttachment, type ComposeOptions, type ComposeSnapshot, useUIStore } from "~/hooks/useUIStore";
+import { getPreferences } from "~/hooks/usePreferences";
 import { isValidEmail, parseAddress, splitAddresses } from "~/lib/address";
 import {
 	buildQuotedReplyBlock,
@@ -26,7 +27,6 @@ import type { Burner, Email, Mailbox } from "~/types";
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const AUTOSAVE_MS = 2000;
-const UNDO_SEND_MS = 5000;
 
 function getPrefixedSubject(subject: string, prefix: "Re" | "Fwd") {
 	const s = subject || "";
@@ -93,15 +93,17 @@ function initialFields(options: ComposeOptions, mailbox: Mailbox | undefined, bu
 	const quoteHtml = buildQuotedReplyBlock(original.date, original.sender, original.body || "");
 	// A conversation that went through a burner is answered from that burner.
 	const fromAddress = threadBurner(original, burners)?.address;
+	// A burner reply leaves the signature out: it often carries a real name.
+	const replySig = fromAddress ? "" : sigBlock;
 	const selves = [mailbox?.email, ...burners.map((b) => b.address)].filter((a): a is string => !!a).map((a) => a.toLowerCase());
 	if (mode === "reply-all") {
 		const { to, cc } = buildReplyAllRecipients(original, selves);
-		return { ...empty, to, cc, showCcBcc: cc.length > 0, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml, fromAddress };
+		return { ...empty, to, cc, showCcBcc: cc.length > 0, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${replySig}`, quoteHtml, fromAddress };
 	}
 	// reply: answer the sender (or, for my own message, the people I wrote to)
 	const fromMe = selves.includes(parseAddress(original.sender).address.toLowerCase());
 	const to = fromMe ? splitEmailList(original.recipient).filter((a) => !selves.includes(parseAddress(a).address.toLowerCase())) : [original.sender];
-	return { ...empty, to, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${sigBlock}`, quoteHtml, fromAddress };
+	return { ...empty, to, subject: getPrefixedSubject(original.subject, "Re"), body: `<p></p>${replySig}`, quoteHtml, fromAddress };
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -320,7 +322,7 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 			setError(`Check the address: ${typos.map((t) => `${t.a} → did you mean ${t.fix}?`).join(" ")} Fix it, or press Send again to send anyway.`);
 			return;
 		}
-		if (!f.subject.trim() && !window.confirm("Send this message without a subject?")) return;
+		if (!f.subject.trim() && getPreferences().confirmNoSubject && !window.confirm("Send this message without a subject?")) return;
 
 		setIsSending(true);
 		let attachments: { content: string; filename: string; type: string; disposition: "attachment" }[] | undefined;
@@ -389,10 +391,17 @@ export function useComposeForm(mailboxId: string | undefined, options: ComposeOp
 			}
 		};
 
+		const undoSeconds = getPreferences().undoSendSeconds;
+		if (undoSeconds <= 0) {
+			// Undo send is off (Preferences): deliver at once.
+			snackbar.show({ message: "Sending…", duration: 30_000 });
+			void deliver();
+			return;
+		}
 		snackbar.show({
 			message: "Sending…",
 			actionLabel: "Undo",
-			duration: UNDO_SEND_MS,
+			duration: undoSeconds * 1000,
 			onAction: () => {
 				startCompose({ ...o, snapshot });
 				snackbar.show({ message: "Sending undone" });

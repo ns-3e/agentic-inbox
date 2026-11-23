@@ -11,7 +11,7 @@ import {
 	Text,
 	useKumoToastManager,
 } from "@cloudflare/kumo";
-import { ArrowRightIcon, CaretRightIcon, EnvelopeIcon, FireIcon, PlusIcon, StackIcon, TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, CaretRightIcon, EnvelopeIcon, FireIcon, PaintBrushIcon, PlusIcon, StackIcon, TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Folders } from "shared/folders";
@@ -165,9 +165,9 @@ export default function HomeRoute() {
 				<span className="h-6 w-6 rounded-[5px] bg-kumo-brand text-kumo-inverse flex items-center justify-center shrink-0">
 					<TrayArrowDownIcon size={15} weight="bold" />
 				</span>
-				<span className="text-[13px] font-semibold text-kumo-default">Agentic Inbox</span>
+				<span className="text-[0.8125rem] font-semibold text-kumo-default">Agentic Inbox</span>
 				<CaretRightIcon size={12} className="text-kumo-subtle" />
-				<span className="text-[13px] font-semibold text-kumo-default">Mailbox directory</span>
+				<span className="text-[0.8125rem] font-semibold text-kumo-default">Mailbox directory</span>
 			</div>
 
 			<header className="page-head flex-wrap">
@@ -188,6 +188,10 @@ export default function HomeRoute() {
 					</div>
 				</div>
 				<div className="ml-auto flex items-center gap-2">
+					<RouterLink to="/all/preferences" className="btn btn-ghost no-underline" title="Preferences">
+						<PaintBrushIcon size={14} />
+						Preferences
+					</RouterLink>
 					{accounts.length > 1 && (
 						<RouterLink to="/all/inbox" className="btn no-underline">
 							<StackIcon size={14} />
@@ -217,7 +221,7 @@ export default function HomeRoute() {
 					</div>
 
 					<section aria-labelledby="dir-mailboxes">
-						<h2 id="dir-mailboxes" className="px-5 pt-5 pb-2 text-[13px] font-semibold text-kumo-default">
+						<h2 id="dir-mailboxes" className="px-5 pt-5 pb-2 text-[0.8125rem] font-semibold text-kumo-default">
 							Mailboxes
 						</h2>
 						{/* Desktop: table */}
@@ -243,8 +247,8 @@ export default function HomeRoute() {
 													<RouterLink to={`/mailbox/${account.id}`} className="flex items-center gap-2.5 no-underline min-w-0 group/link">
 														<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(account.id)} 60% 48%)` }} />
 														<span className="min-w-0">
-															<span className="block ops-mono text-[12.5px] text-kumo-default truncate group-hover/link:text-kumo-link group-hover/link:underline">{account.email}</span>
-															{account.name && account.name !== account.email && <span className="block text-[11px] text-kumo-subtle truncate">{account.name}</span>}
+															<span className="block ops-mono text-[0.78125rem] text-kumo-default truncate group-hover/link:text-kumo-link group-hover/link:underline">{account.email}</span>
+															{account.name && account.name !== account.email && <span className="block text-[0.6875rem] text-kumo-subtle truncate">{account.name}</span>}
 														</span>
 													</RouterLink>
 												</td>
@@ -289,7 +293,7 @@ export default function HomeRoute() {
 										<RouterLink to={`/mailbox/${account.id}`} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 no-underline active:bg-kumo-tint">
 											<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(account.id)} 60% 48%)` }} />
 											<span className="min-w-0 flex-1">
-												<span className="block ops-mono text-[13px] text-kumo-default truncate">{account.email}</span>
+												<span className="block ops-mono text-[0.8125rem] text-kumo-default truncate">{account.email}</span>
 												<span className="block text-xs text-kumo-subtle truncate">
 													{route ? `Collects *@${route}` : account.name !== account.email ? account.name : "Mailbox"}
 												</span>
@@ -310,7 +314,7 @@ export default function HomeRoute() {
 
 					{catchAll.length > 0 && (
 						<section aria-labelledby="dir-routing" className="pb-10">
-							<h2 id="dir-routing" className="px-5 pt-6 pb-1 text-[13px] font-semibold text-kumo-default">
+							<h2 id="dir-routing" className="px-5 pt-6 pb-1 text-[0.8125rem] font-semibold text-kumo-default">
 								Domain routing
 							</h2>
 							<p className="px-5 pb-2 text-xs text-kumo-subtle max-w-2xl">
@@ -329,10 +333,10 @@ export default function HomeRoute() {
 									<tbody>
 										{catchAll.map((c) => (
 											<tr key={c.domain}>
-												<td className="ops-mono text-[12.5px]">@{c.domain}</td>
+												<td className="ops-mono text-[0.78125rem]">@{c.domain}</td>
 												<td>
 													{c.mailboxId ? (
-														<RouterLink to={`/mailbox/${encodeURIComponent(c.mailboxId)}/settings`} className="inline-flex items-center gap-1.5 ops-mono text-[12.5px] text-kumo-default no-underline hover:text-kumo-link hover:underline">
+														<RouterLink to={`/mailbox/${encodeURIComponent(c.mailboxId)}/settings`} className="inline-flex items-center gap-1.5 ops-mono text-[0.78125rem] text-kumo-default no-underline hover:text-kumo-link hover:underline">
 															{c.mailboxId}
 															<span className="font-sans text-kumo-subtle">/ Other addresses</span>
 														</RouterLink>
@@ -357,7 +361,7 @@ export default function HomeRoute() {
 							<EnvelopeIcon size={22} />
 						</div>
 						<h3 className="text-sm font-semibold text-kumo-default mb-1">No mailboxes yet</h3>
-						<p className="text-[13px] leading-relaxed text-kumo-subtle max-w-sm mb-5">
+						<p className="text-[0.8125rem] leading-relaxed text-kumo-subtle max-w-sm mb-5">
 							{isConfigured
 								? "Email routing is configured. The mailboxes are being created and will appear here."
 								: "Create a mailbox for an address on your domain. Each mailbox gets its own storage, agent, burner addresses and queues."}

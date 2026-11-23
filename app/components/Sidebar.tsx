@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Button, Dialog, Input } from "@cloudflare/kumo";
-import { FireIcon, GearSixIcon, PlusIcon, SquaresFourIcon, StackIcon, TagIcon } from "@phosphor-icons/react";
+import { FireIcon, GearSixIcon, PaintBrushIcon, PlusIcon, SquaresFourIcon, StackIcon, TagIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders";
@@ -33,8 +33,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
 			{/* Scope: the mailbox this rail controls */}
 			{!collapsed && (
 				<div className="px-4 pt-3 pb-2 md:pt-3">
-					<div className="text-[11px] font-semibold text-kumo-subtle">Mailbox</div>
-					<div className="ops-mono text-[13px] text-kumo-default truncate" title={address}>{address}</div>
+					<div className="text-[0.6875rem] font-semibold text-kumo-subtle">Mailbox</div>
+					<div className="ops-mono text-[0.8125rem] text-kumo-default truncate" title={address}>{address}</div>
 					{name && <div className="text-xs text-kumo-subtle truncate">{name}</div>}
 				</div>
 			)}
@@ -99,6 +99,13 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
 
 				<NavSection label="Workspace" collapsed={collapsed} />
 				<NavPill to="/all/inbox" label="All mailboxes" icon={<StackIcon size={18} />} active={false} collapsed={collapsed} />
+				<NavPill
+					to={`${base}/preferences`}
+					label="Preferences"
+					icon={<PaintBrushIcon size={18} weight={active === "preferences" ? "fill" : "regular"} />}
+					active={active === "preferences"}
+					collapsed={collapsed}
+				/>
 				<NavPill to="/" label="Mailbox directory" icon={<SquaresFourIcon size={18} />} active={false} collapsed={collapsed} />
 			</nav>
 

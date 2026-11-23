@@ -130,7 +130,7 @@ export default function BurnerCreateForm({
 				value={domain}
 				onChange={(e) => setDomain(e.target.value)}
 				aria-label="Domain"
-				className="h-8 max-w-[45%] shrink-0 border-0 border-l border-[var(--ops-line-strong)] bg-kumo-tint pl-2 pr-1 ops-mono text-[12px] text-kumo-default cursor-pointer outline-none"
+				className="h-8 max-w-[45%] shrink-0 border-0 border-l border-[var(--ops-line-strong)] bg-kumo-tint pl-2 pr-1 ops-mono text-[0.75rem] text-kumo-default cursor-pointer outline-none"
 			>
 				{domains.map((d) => (
 					<option key={d} value={d}>
@@ -139,7 +139,7 @@ export default function BurnerCreateForm({
 				))}
 			</select>
 		) : (
-			<span className="ops-mono text-[12px] text-kumo-subtle pr-2.5 shrink-0">@{domain}</span>
+			<span className="ops-mono text-[0.75rem] text-kumo-subtle pr-2.5 shrink-0">@{domain}</span>
 		);
 
 	const addressField = (
@@ -157,7 +157,7 @@ export default function BurnerCreateForm({
 			>
 				{mode === "random" ? (
 					<>
-						<span className="flex-1 min-w-0 h-8 leading-8 px-2.5 ops-mono text-[13px] text-kumo-default truncate" aria-live="polite" title={suggestion}>
+						<span className="flex-1 min-w-0 h-8 leading-8 px-2.5 ops-mono text-[0.8125rem] text-kumo-default truncate" aria-live="polite" title={suggestion}>
 							{suggestion || "…"}
 						</span>
 						<button
@@ -172,7 +172,7 @@ export default function BurnerCreateForm({
 					</>
 				) : (
 					<input
-						className="flex-1 min-w-0 h-8 px-2.5 bg-transparent border-0 outline-none ops-mono text-[13px] text-kumo-default placeholder:text-kumo-subtle placeholder:font-sans"
+						className="flex-1 min-w-0 h-8 px-2.5 bg-transparent border-0 outline-none ops-mono text-[0.8125rem] text-kumo-default placeholder:text-kumo-subtle placeholder:font-sans"
 						placeholder="your-name"
 						value={custom}
 						onChange={(e) => setCustom(e.target.value)}

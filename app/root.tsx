@@ -23,6 +23,8 @@ import {
 	ScrollRestoration,
 } from "react-router";
 import Snackbar from "~/components/Snackbar";
+import { usePreferences } from "~/hooks/usePreferences";
+import { BOOT_SCRIPT } from "~/lib/preferences";
 import { ApiError } from "~/services/api";
 import "./index.css";
 
@@ -78,7 +80,9 @@ const KumoLink = forwardRef<
 
 export function Layout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		// Preferences (theme, accent, size) are applied to <html> before React
+		// hydrates, so its attributes differ from the server render on purpose.
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<meta charSet="UTF-8" />
 				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -103,6 +107,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 				<meta name="theme-color" content="#15191e" media="(prefers-color-scheme: dark)" />
 				<meta name="format-detection" content="telephone=no" />
+				{/* Apply saved theme / accent / size before first paint. */}
+				{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static script built from constants */}
+				<script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
 				<title>Agentic Inbox</title>
 				<Meta />
 				<Links />
@@ -128,6 +135,8 @@ export default function App() {
 	// Use useState to ensure each SSR request gets a fresh client while the
 	// browser reuses the same singleton across navigations.
 	const [queryClient] = useState(getQueryClient);
+	const hydratePreferences = usePreferences((s) => s.hydrate);
+	useEffect(() => hydratePreferences(), [hydratePreferences]);
 
 	// Register the (pass-through) service worker that makes the app installable.
 	useEffect(() => {

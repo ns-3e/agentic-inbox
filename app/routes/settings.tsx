@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Loader, useKumoToastManager } from "@cloudflare/kumo";
+import { Loader, Switch, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowCounterClockwiseIcon, ArrowRightIcon, GearSixIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
@@ -21,14 +21,21 @@ export default function SettingsRoute() {
 
 	const [displayName, setDisplayName] = useState("");
 	const [agentPrompt, setAgentPrompt] = useState("");
+	const [sigEnabled, setSigEnabled] = useState(false);
+	const [sigText, setSigText] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		if (mailbox) {
 			setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
 			setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
+			setSigEnabled(!!mailbox.settings?.signature?.enabled);
+			setSigText(mailbox.settings?.signature?.text || "");
 		}
 	}, [mailbox]);
+
+	const savedSigEnabled = !!mailbox?.settings?.signature?.enabled;
+	const savedSigText = mailbox?.settings?.signature?.text || "";
 
 	const handleSave = async () => {
 		if (!mailbox || !mailboxId) return;
@@ -37,6 +44,12 @@ export default function SettingsRoute() {
 			...mailbox.settings,
 			fromName: displayName,
 			agentSystemPrompt: agentPrompt.trim() || undefined,
+			signature: {
+				enabled: sigEnabled,
+				text: sigText,
+				// An HTML signature (set through the API) is kept until the text is edited here.
+				...(sigText === savedSigText && mailbox.settings?.signature?.html ? { html: mailbox.settings.signature.html } : {}),
+			},
 		};
 		try {
 			// The save bar reports success; only failures need a toast.
@@ -66,7 +79,11 @@ export default function SettingsRoute() {
 	const isCustomPrompt = agentPrompt.trim().length > 0;
 	const savedName = mailbox.settings?.fromName || mailbox.name || "";
 	const savedPrompt = mailbox.settings?.agentSystemPrompt || "";
-	const dirty = displayName !== savedName || agentPrompt.trim() !== savedPrompt.trim();
+	const dirty =
+		displayName !== savedName ||
+		agentPrompt.trim() !== savedPrompt.trim() ||
+		sigEnabled !== savedSigEnabled ||
+		sigText !== savedSigText;
 	const domain = mailbox.email.split("@")[1] ?? "";
 
 	return (
@@ -105,6 +122,40 @@ export default function SettingsRoute() {
 						</div>
 					</section>
 
+					<section className="config-section" aria-labelledby="cfg-signature">
+						<div>
+							<h2 id="cfg-signature" className="config-title flex items-center gap-2">
+								Signature
+								<span className={sigEnabled ? "chip chip-ok" : "chip"}>{sigEnabled ? "On" : "Off"}</span>
+							</h2>
+							<p className="config-desc">Added below new messages, replies and forwards from this mailbox. Replies sent from a burner address leave it out, so the burner does not show your name.</p>
+						</div>
+						<div className="space-y-3 max-w-lg">
+							<div className="flex items-center justify-between gap-4">
+								<span className="text-[0.8125rem] font-semibold text-kumo-default">Add signature to outgoing mail</span>
+								<Switch checked={sigEnabled} onCheckedChange={setSigEnabled} aria-label="Add signature to outgoing mail" />
+							</div>
+							<label className="block">
+								<span className="field-label">Signature text</span>
+								<textarea
+									className="field resize-y"
+									rows={4}
+									value={sigText}
+									onChange={(e) => setSigText(e.target.value)}
+									placeholder={"Alice Example\nOperations, Example Inc."}
+									aria-label="Signature text"
+								/>
+								<span className="field-hint block">Plain text. Line breaks are kept.</span>
+							</label>
+							{sigEnabled && sigText.trim() && (
+								<div className="rounded-md border border-kumo-line bg-kumo-tint px-3 py-2 text-xs text-kumo-subtle">
+									<div className="mb-1">Preview</div>
+									<div className="border-t border-kumo-line pt-2 text-[0.8125rem] text-kumo-default whitespace-pre-wrap">{sigText}</div>
+								</div>
+							)}
+						</div>
+					</section>
+
 					<CatchAllSection mailboxId={mailbox.email} domain={domain} />
 
 					<section className="config-section" aria-labelledby="cfg-agent">
@@ -123,7 +174,7 @@ export default function SettingsRoute() {
 							<div className="flex items-center justify-between mb-1.5">
 								<span className="field-label !mb-0">System prompt</span>
 								<div className="flex items-center gap-2">
-									<span className="ops-mono tabular text-[11px] text-kumo-subtle">{agentPrompt.length.toLocaleString()} chars</span>
+									<span className="ops-mono tabular text-[0.6875rem] text-kumo-subtle">{agentPrompt.length.toLocaleString()} chars</span>
 									{isCustomPrompt && (
 										<button type="button" className="btn btn-ghost !h-7 !px-2 !text-xs !font-medium" onClick={handleResetPrompt}>
 											<ArrowCounterClockwiseIcon size={13} />
@@ -168,6 +219,8 @@ export default function SettingsRoute() {
 							onClick={() => {
 								setDisplayName(savedName);
 								setAgentPrompt(savedPrompt);
+								setSigEnabled(savedSigEnabled);
+								setSigText(savedSigText);
 							}}
 						>
 							Discard

@@ -30,6 +30,7 @@ import { useHotkeys } from "~/hooks/useHotkeys";
 import { useListNav } from "~/hooks/useListNav";
 import { type MailTarget, useMailActions } from "~/hooks/useMailActions";
 import { useIsDesktop } from "~/hooks/useMediaQuery";
+import { usePreferences } from "~/hooks/usePreferences";
 import { useSwipeActions } from "~/hooks/useSwipeActions";
 import { rowKey, useUIStore } from "~/hooks/useUIStore";
 import { useFolders } from "~/queries/folders";
@@ -37,7 +38,6 @@ import { type MailListSource, useMailList } from "~/queries/mailList";
 import api from "~/services/api";
 import type { Email } from "~/types";
 
-const DESKTOP_PAGE = 50;
 const PHONE_PAGE = 25;
 
 function ListSkeleton() {
@@ -100,9 +100,12 @@ export default function ConversationList({
 		setFocusIdx(-1);
 		clearChecked();
 	}, [sourceKey, clearChecked]);
+	const desktopPage = usePreferences((s) => s.pageSize);
+	const refreshSeconds = usePreferences((s) => s.refreshSeconds);
+	useEffect(() => setPage(1), [desktopPage]);
 
-	const pageSize = isDesktop ? DESKTOP_PAGE : PHONE_PAGE;
-	const list = useMailList(source, { paged: isDesktop, page, pageSize, refetchInterval: 30_000 });
+	const pageSize = isDesktop ? desktopPage : PHONE_PAGE;
+	const list = useMailList(source, { paged: isDesktop, page, pageSize, refetchInterval: refreshSeconds ? refreshSeconds * 1000 : undefined });
 	const { emails, totalCount } = list;
 
 	const mailboxOf = useCallback(
@@ -353,7 +356,7 @@ export default function ConversationList({
 							<Menu
 								align="left"
 								label="Move to"
-								header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Move to</div>}
+								header={<div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-semibold text-kumo-subtle">Move to</div>}
 								items={moveTargets.map((f) => ({ label: f.name, onSelect: () => bulk.move(f.id) }))}
 								trigger={(p) => (
 									<button type="button" {...p} className="icon-btn" title="Move to" aria-label="Move to">
@@ -452,7 +455,7 @@ export default function ConversationList({
 			{!compact && emails.length > 0 && (
 				<div
 					aria-hidden
-					className="hidden md:flex items-center gap-3 h-7 pl-2 pr-3 shrink-0 border-b border-kumo-line text-[10.5px] font-semibold uppercase tracking-[0.04em] text-kumo-subtle bg-kumo-base"
+					className="hidden md:flex items-center gap-3 h-7 pl-2 pr-3 shrink-0 border-b border-kumo-line text-[0.65625rem] font-semibold uppercase tracking-[0.04em] text-kumo-subtle bg-kumo-base"
 				>
 					<span className="w-[60px] shrink-0" />
 					<span className="w-2 shrink-0" />
@@ -477,8 +480,8 @@ export default function ConversationList({
 							<ArrowLeftIcon size={20} />
 						</button>
 					)}
-					<h1 className="text-[15px] font-semibold text-kumo-default truncate">{title}</h1>
-						{totalCount > 0 && <span className="ml-auto ops-mono tabular text-[11px] text-kumo-subtle">{totalCount.toLocaleString()}</span>}
+					<h1 className="text-[0.9375rem] font-semibold text-kumo-default truncate">{title}</h1>
+						{totalCount > 0 && <span className="ml-auto ops-mono tabular text-[0.6875rem] text-kumo-subtle">{totalCount.toLocaleString()}</span>}
 				</div>
 
 				{list.error ? (

@@ -26,6 +26,8 @@ Operations console for addresses and message flows. Reference class: enterprise 
 | OK / Warn / Bad | `--ops-ok` / `--ops-warn` / `--ops-bad` (+ `-tint`) | #17794a / #94560a / #b8321f | #55c48b / #e6a74a / #f2836f |
 | Star | `--ops-star` | #b7791f | #e9b44c |
 
+Accent and agent colors are user preferences. Only `--accent-l` / `--accent-d` and `--agent-l` / `--agent-d` are set (inline on `<html>`); tint, text, hover and focus-ring tokens are `color-mix()`ed from them, so never hard-code an accent value. Custom accents are derived in OKLCH so white text on the light shade stays ≥ 4.5:1. Density sets `--row-h`, `--row2-py`, `--nav-h`, `--table-row-h` through `data-density`; text size sets `--ui-scale` (root font size), so use rem, not px, for type.
+
 Per-mailbox identity: a hue dot from `mailboxHue()` (golden-angle spread over the sorted mailbox list), the same in the rail, scope switcher, list, reader, and directory.
 
 ## Type
@@ -55,6 +57,7 @@ System sans stack at 14px base; scale 11 / 12 / 13 / 15 / 16 / 18 / 20. Weights 
 - **MCP endpoint** (`MCPPanel`): URL, Cloudflare Access service-token note, client snippets (Claude Code, JSON), tool catalog with Read / Draft / Modify / Send / Delete access chips and a warning for send and delete tools.
 - **Burner registry** (`routes/burners.tsx`): stat strip, inline create bar with `@domain` suffix, filter + status segmented control, table with switch, status chip, counts, dates; stacked list on phones.
 - **Routing & settings** (`routes/settings.tsx`): config sections for sender identity (with recipient preview), catch-all routing (route diagram + select), agent instructions (prompt with char count); sticky save bar with dirty state.
+- **Preferences** (`routes/preferences.tsx`, at `/all/preferences` and `/mailbox/:id/preferences`, shortcut `,`): browser-local settings that apply at once: theme, accent and agent color, text size, density, motion, list, reading, sending, keyboard; export / import. Model and color math in `app/lib/preferences.ts`, store in `app/hooks/usePreferences.ts`.
 - **Mailbox directory** (`routes/home.tsx`): stat strip, mailbox table (unread per queue, burners active/total, catch-all route), domain routing table.
 
 ## Motion

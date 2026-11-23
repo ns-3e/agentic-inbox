@@ -88,14 +88,14 @@ function RunStep({ toolName, part }: { toolName: string; part: any }) {
 				)}
 			</summary>
 			<div className="px-2 pb-2 space-y-1.5">
-				<div className="text-[11px] text-kumo-subtle">{info.label}</div>
+				<div className="text-[0.6875rem] text-kumo-subtle">{info.label}</div>
 				{input !== undefined && (
-					<pre className="ops-mono text-[11px] leading-snug whitespace-pre-wrap break-all max-h-40 overflow-auto rounded border border-kumo-line bg-kumo-base p-2 m-0 text-kumo-strong">
+					<pre className="ops-mono text-[0.6875rem] leading-snug whitespace-pre-wrap break-all max-h-40 overflow-auto rounded border border-kumo-line bg-kumo-base p-2 m-0 text-kumo-strong">
 						{JSON.stringify(input, null, 2)}
 					</pre>
 				)}
 				{done && output !== undefined && (
-					<pre className="ops-mono text-[11px] leading-snug whitespace-pre-wrap break-all max-h-48 overflow-auto rounded border border-kumo-line bg-kumo-base p-2 m-0 text-kumo-strong">
+					<pre className="ops-mono text-[0.6875rem] leading-snug whitespace-pre-wrap break-all max-h-48 overflow-auto rounded border border-kumo-line bg-kumo-base p-2 m-0 text-kumo-strong">
 						{typeof output === "string" ? output : JSON.stringify(output, null, 2)}
 					</pre>
 				)}
@@ -126,9 +126,9 @@ const markdownComponents = {
 	ol: ({ children }: any) => <ol className="list-decimal pl-4 mb-2 last:mb-0 space-y-0.5">{children}</ol>,
 	li: ({ children }: any) => <li>{children}</li>,
 	h1: ({ children }: any) => <h3 className="font-semibold text-sm mb-1">{children}</h3>,
-	h2: ({ children }: any) => <h4 className="font-semibold text-[13px] mb-1">{children}</h4>,
-	h3: ({ children }: any) => <h5 className="font-semibold text-[13px] mb-0.5">{children}</h5>,
-	code: ({ children }: any) => <code className="ops-mono bg-kumo-fill px-1 py-0.5 rounded text-[12px]">{children}</code>,
+	h2: ({ children }: any) => <h4 className="font-semibold text-[0.8125rem] mb-1">{children}</h4>,
+	h3: ({ children }: any) => <h5 className="font-semibold text-[0.8125rem] mb-0.5">{children}</h5>,
+	code: ({ children }: any) => <code className="ops-mono bg-kumo-fill px-1 py-0.5 rounded text-[0.75rem]">{children}</code>,
 	table: ({ children }: any) => (
 		<div className="overflow-x-auto my-2 rounded-md border border-kumo-line">
 			<table className="w-full text-xs border-collapse">{children}</table>
@@ -168,15 +168,15 @@ function Turn({
 		}
 		return (
 			<div className="rounded-md bg-kumo-tint border border-kumo-line px-3 py-2">
-				<div className="text-[11px] font-semibold text-kumo-subtle mb-0.5">You</div>
-				<div className="text-[13px] leading-relaxed text-kumo-default whitespace-pre-wrap break-words">{text}</div>
+				<div className="text-[0.6875rem] font-semibold text-kumo-subtle mb-0.5">You</div>
+				<div className="text-[0.8125rem] leading-relaxed text-kumo-default whitespace-pre-wrap break-words">{text}</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="space-y-1.5">
-			<div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--ops-agent)]">
+			<div className="flex items-center gap-1.5 text-[0.6875rem] font-semibold text-[var(--ops-agent)]">
 				<span className="h-1.5 w-1.5 rounded-full bg-[var(--ops-agent)]" />
 				Agent
 			</div>
@@ -184,7 +184,7 @@ function Turn({
 				const key = `${message.id}-part-${i}`;
 				if (part.type === "text" && part.text.trim()) {
 					return (
-						<div key={key} className="text-[13px] leading-relaxed text-kumo-default break-words [overflow-wrap:anywhere]">
+						<div key={key} className="text-[0.8125rem] leading-relaxed text-kumo-default break-words [overflow-wrap:anywhere]">
 							<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
 								{part.text}
 							</Markdown>
@@ -307,7 +307,7 @@ function AgentChatConnected({
 			{/* Header: scope, model, state */}
 			<div className="px-3 py-2.5 border-b border-kumo-line shrink-0 space-y-1.5">
 				<div className="flex items-center gap-2">
-					<span className="text-[13px] font-semibold text-kumo-default">Agent console</span>
+					<span className="text-[0.8125rem] font-semibold text-kumo-default">Agent console</span>
 					<span className={`chip ${isStreaming ? "chip-agent" : ""}`}>
 						<span className={`h-1.5 w-1.5 rounded-full ${isStreaming ? "bg-[var(--ops-agent)] animate-pulse" : "bg-[var(--ops-ok)]"}`} />
 						{isStreaming ? "Running" : "Ready"}
@@ -327,7 +327,7 @@ function AgentChatConnected({
 						)}
 					</div>
 				</div>
-				<div className="flex items-center gap-1.5 text-[11px] text-kumo-subtle min-w-0">
+				<div className="flex items-center gap-1.5 text-[0.6875rem] text-kumo-subtle min-w-0">
 					<span className="shrink-0">Scope</span>
 					<span className="ops-mono text-kumo-strong truncate">{isUnified ? "all mailboxes" : mailboxId}</span>
 					<span className="shrink-0">·</span>
@@ -341,7 +341,7 @@ function AgentChatConnected({
 				{messages.length === 0 ? (
 					<div className="space-y-4">
 						<div className="rounded-md border border-kumo-line p-3 space-y-2">
-							<div className="flex items-center gap-2 text-[13px] font-semibold text-kumo-default">
+							<div className="flex items-center gap-2 text-[0.8125rem] font-semibold text-kumo-default">
 								<ShieldCheckIcon size={16} className="text-[var(--ops-agent)]" />
 								Draft-only agent
 							</div>
@@ -358,7 +358,7 @@ function AgentChatConnected({
 							</div>
 						</div>
 						<div>
-							<div className="text-[11px] font-semibold text-kumo-subtle mb-1.5">Start a run</div>
+							<div className="text-[0.6875rem] font-semibold text-kumo-subtle mb-1.5">Start a run</div>
 							<div className="rounded-md border border-kumo-line divide-y divide-kumo-line overflow-hidden">
 								{suggestedPrompts.map((prompt) => (
 									<button
@@ -391,7 +391,7 @@ function AgentChatConnected({
 
 			{/* Prompt */}
 			<div className="shrink-0 border-t border-kumo-line p-2.5 bg-[var(--ops-header)]">
-				<div className="rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand focus-within:shadow-[0_0_0_3px_light-dark(rgb(11_110_120/0.15),rgb(54_170_180/0.25))]">
+				<div className="rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand focus-within:shadow-[0_0_0_3px_var(--ops-focus-ring)]">
 					<textarea
 						ref={inputRef}
 						id="agent-chat-input"
@@ -403,7 +403,7 @@ function AgentChatConnected({
 						rows={2}
 						aria-label="Agent instruction"
 						disabled={isStreaming}
-						className="block w-full resize-none bg-transparent border-0 px-2.5 pt-2 text-[13px] text-kumo-default placeholder:text-kumo-subtle outline-none min-h-[44px] max-h-[140px]"
+						className="block w-full resize-none bg-transparent border-0 px-2.5 pt-2 text-[0.8125rem] text-kumo-default placeholder:text-kumo-subtle outline-none min-h-[44px] max-h-[140px]"
 						style={{ overflow: "hidden" }}
 						onInput={(e) => {
 							const t = e.target as HTMLTextAreaElement;
@@ -413,7 +413,7 @@ function AgentChatConnected({
 						}}
 					/>
 					<div className="flex items-center gap-2 px-2 pb-1.5">
-						<span className="text-[11px] text-kumo-subtle">
+						<span className="text-[0.6875rem] text-kumo-subtle">
 							<kbd>Enter</kbd> run · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line
 						</span>
 						{isStreaming ? (

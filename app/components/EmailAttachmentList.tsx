@@ -64,7 +64,7 @@ export default function EmailAttachmentList({
 									<span className="shrink-0">{fileIcon(a.mimetype || "", 16)}</span>
 									<div className="min-w-0">
 										<div className="truncate text-xs font-medium text-kumo-default">{a.filename}</div>
-										<div className="text-[11px] text-kumo-subtle">{formatBytes(a.size)}</div>
+										<div className="text-[0.6875rem] text-kumo-subtle">{formatBytes(a.size)}</div>
 									</div>
 								</div>
 							</button>

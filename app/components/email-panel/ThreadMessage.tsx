@@ -21,6 +21,7 @@ import { formatMessageDate, formatListDate } from "shared/dates";
 import Avatar from "~/components/Avatar";
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
+import { useHour12 } from "~/hooks/usePreferences";
 import Menu from "~/components/Menu";
 import { displayName, nameOrMe, parseAddress } from "~/lib/address";
 import { formatDetailDate, getNonInlineAttachments, getSnippetText, rewriteInlineImages, splitEmailList } from "~/lib/utils";
@@ -82,12 +83,13 @@ function recipientsSummary(email: Email, self?: string) {
 }
 
 function Details({ email }: { email: Email }) {
+	const hour12 = useHour12();
 	const rows: [string, string][] = [
 		["from:", email.sender],
 		["to:", email.recipient],
 		...(email.cc ? ([["cc:", email.cc]] as [string, string][]) : []),
 		...(email.bcc ? ([["bcc:", email.bcc]] as [string, string][]) : []),
-		["date:", formatDetailDate(email.date)],
+		["date:", formatDetailDate(email.date, hour12)],
 		["subject:", email.subject || "(no subject)"],
 	];
 	return (
@@ -130,6 +132,7 @@ export default function ThreadMessage({
 	onViewSource,
 	onPreviewImage,
 }: ThreadMessageProps) {
+	const hour12 = useHour12();
 	const [showDetails, setShowDetails] = useState(false);
 	const sender = parseAddress(email.sender);
 	const isSelf = !!mailboxEmail && sender.address.toLowerCase() === mailboxEmail.toLowerCase();
@@ -149,7 +152,7 @@ export default function ThreadMessage({
 						<span className={`truncate text-sm font-bold ${isDraft ? "text-[var(--ops-bad)]" : "text-kumo-default"}`}>{name}</span>
 						<span className="ml-auto flex items-center gap-2 shrink-0 text-xs text-kumo-subtle">
 							{hasFiles && <PaperclipIcon size={14} />}
-							{formatListDate(email.date)}
+							{formatListDate(email.date, hour12)}
 						</span>
 					</div>
 					<p className="truncate text-sm text-kumo-subtle mt-0.5">{getSnippetText(email.snippet || email.body, 160)}</p>
@@ -174,8 +177,8 @@ export default function ThreadMessage({
 							</div>
 						</div>
 						<div className="flex items-center shrink-0 -mr-2 -mt-1.5">
-							<span className="hidden sm:inline text-xs text-kumo-subtle mr-1 whitespace-nowrap">{formatMessageDate(email.date)}</span>
-							<span className="sm:hidden text-xs text-kumo-subtle mr-1">{formatListDate(email.date)}</span>
+							<span className="hidden sm:inline text-xs text-kumo-subtle mr-1 whitespace-nowrap">{formatMessageDate(email.date, undefined, hour12)}</span>
+							<span className="sm:hidden text-xs text-kumo-subtle mr-1">{formatListDate(email.date, hour12)}</span>
 							{!isDraft && (
 								<>
 									<button type="button" className="icon-btn hidden md:inline-flex" aria-label={email.starred ? "Starred" : "Not starred"} title={email.starred ? "Starred" : "Not starred"} onClick={onToggleStar}>

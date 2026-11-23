@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { FireIcon, SquaresFourIcon } from "@phosphor-icons/react";
+import { FireIcon, PaintBrushIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import { Folders } from "shared/folders";
 import { mailboxHue, mailboxShortName } from "~/components/EmailListRow";
 import { AutomationNav, ComposePill, NAV_FOLDERS, NavPill, NavSection, useActiveNav } from "~/components/NavItems";
@@ -31,8 +31,8 @@ export default function UnifiedSidebar({
 		<aside className="h-full w-full flex flex-col bg-kumo-recessed border-r border-kumo-line pt-[env(safe-area-inset-top)] md:pt-0">
 			{!collapsed && (
 				<div className="px-4 pt-3 pb-2">
-					<div className="text-[11px] font-semibold text-kumo-subtle">Scope</div>
-					<div className="text-[13px] font-semibold text-kumo-default">All mailboxes</div>
+					<div className="text-[0.6875rem] font-semibold text-kumo-subtle">Scope</div>
+					<div className="text-[0.8125rem] font-semibold text-kumo-default">All mailboxes</div>
 					<div className="text-xs text-kumo-subtle tabular">
 						{summaries.length} mailbox{summaries.length === 1 ? "" : "es"} · {totalUnread.toLocaleString()} unread
 					</div>
@@ -84,6 +84,13 @@ export default function UnifiedSidebar({
 				<AutomationNav collapsed={collapsed} />
 
 				<NavSection label="Workspace" collapsed={collapsed} />
+				<NavPill
+					to="/all/preferences"
+					label="Preferences"
+					icon={<PaintBrushIcon size={18} weight={active === "preferences" ? "fill" : "regular"} />}
+					active={active === "preferences"}
+					collapsed={collapsed}
+				/>
 				<NavPill to="/" label="Mailbox directory" icon={<SquaresFourIcon size={18} />} active={false} collapsed={collapsed} />
 			</nav>
 		</aside>

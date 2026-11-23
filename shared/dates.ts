@@ -27,7 +27,7 @@ function safeParse(dateStr: string | undefined | null): Date | null {
  * - This year: "Apr 15"
  * - Older: "Apr 15, 2024"
  */
-export function formatListDate(dateStr: string): string {
+export function formatListDate(dateStr: string, hour12?: boolean): string {
 	const date = safeParse(dateStr);
 	if (!date) return dateStr;
 
@@ -36,6 +36,7 @@ export function formatListDate(dateStr: string): string {
 		return date.toLocaleTimeString(undefined, {
 			hour: "numeric",
 			minute: "2-digit",
+			hour12,
 		});
 	}
 	if (date.getFullYear() === now.getFullYear()) {
@@ -55,7 +56,7 @@ export function formatListDate(dateStr: string): string {
  * Email detail header.
  * "Tue, Apr 15, 3:42 PM"
  */
-export function formatDetailDate(dateStr: string): string {
+export function formatDetailDate(dateStr: string, hour12?: boolean): string {
 	const date = safeParse(dateStr);
 	if (!date) return dateStr;
 
@@ -65,6 +66,7 @@ export function formatDetailDate(dateStr: string): string {
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
+		hour12,
 	});
 }
 
@@ -72,13 +74,14 @@ export function formatDetailDate(dateStr: string): string {
  * Thread message headers — time only.
  * "3:42 PM"
  */
-export function formatShortDate(dateStr: string): string {
+export function formatShortDate(dateStr: string, hour12?: boolean): string {
 	const date = safeParse(dateStr);
 	if (!date) return dateStr;
 
 	return date.toLocaleTimeString(undefined, {
 		hour: "numeric",
 		minute: "2-digit",
+		hour12,
 	});
 }
 
@@ -109,18 +112,19 @@ export function formatQuotedDate(dateStr: string | undefined): string {
  * Gmail message header date: "Nov 19, 2026, 5:46 PM (3 days ago)".
  * Today: "5:46 PM (2 hours ago)". The year is left out for this year.
  */
-export function formatMessageDate(dateStr: string, now: Date = new Date()): string {
+export function formatMessageDate(dateStr: string, now: Date = new Date(), hour12?: boolean): string {
 	const date = safeParse(dateStr);
 	if (!date) return dateStr;
 	const sameDay = date.toDateString() === now.toDateString();
 	const abs = sameDay
-		? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+		? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12 })
 		: date.toLocaleString(undefined, {
 				month: "short",
 				day: "numeric",
 				...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
 				hour: "numeric",
 				minute: "2-digit",
+				hour12,
 			});
 	const rel = formatRelative(date, now);
 	return rel ? `${abs} (${rel})` : abs;

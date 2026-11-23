@@ -8,6 +8,7 @@ import { setMailboxOrder } from "~/components/EmailListRow";
 import MailShell from "~/components/MailShell";
 import UnifiedSidebar from "~/components/UnifiedSidebar";
 import { ActiveMailboxContext } from "~/hooks/useActiveMailbox";
+import { usePreferences } from "~/hooks/usePreferences";
 import { useUIStore } from "~/hooks/useUIStore";
 import { useUnifiedSummary } from "~/queries/emails";
 
@@ -25,7 +26,8 @@ export default function UnifiedLayout() {
 	const selectedMailboxId = useUIStore((s) => s.selectedMailboxId);
 	const [composeFrom, setComposeFrom] = useState<string | undefined>();
 
-	const { data: summaries = [] } = useUnifiedSummary({ refetchInterval: 30_000 });
+	const refreshSeconds = usePreferences((s) => s.refreshSeconds);
+	const { data: summaries = [] } = useUnifiedSummary({ refetchInterval: refreshSeconds ? refreshSeconds * 1000 : undefined });
 	const mailboxIds = useMemo(() => {
 		const ids = summaries.map((m) => m.id);
 		setMailboxOrder(ids);

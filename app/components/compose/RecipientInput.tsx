@@ -106,7 +106,7 @@ export default function RecipientInput({
 							<span
 								key={`${v}-${i}`}
 								title={!valid ? `"${v}" is not a valid email address` : fix ? `Did you mean ${fix}?` : address}
-								className={`inline-flex items-center gap-1 max-w-full h-6 pl-0.5 pr-1 rounded text-[13px] border ${
+								className={`inline-flex items-center gap-1 max-w-full h-6 pl-0.5 pr-1 rounded text-[0.8125rem] border ${
 									bad ? "border-[var(--ops-bad)] text-[var(--ops-bad)] bg-[var(--ops-bad-tint)]" : "border-[var(--chip-border)] bg-[var(--chip-bg)] text-kumo-default"
 								}`}
 							>

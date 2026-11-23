@@ -43,7 +43,7 @@ function Empty({ icon, title, description }: { icon: React.ReactNode; title: str
 		<div className="flex flex-col items-center justify-center py-20 px-6 text-center">
 			<div className="mb-3 h-11 w-11 rounded-lg border border-kumo-line bg-kumo-tint flex items-center justify-center text-kumo-subtle">{icon}</div>
 			<h3 className="text-sm font-semibold text-kumo-default mb-1">{title}</h3>
-			{description && <p className="text-[13px] leading-relaxed text-kumo-subtle max-w-sm">{description}</p>}
+			{description && <p className="text-[0.8125rem] leading-relaxed text-kumo-subtle max-w-sm">{description}</p>}
 			<p className="hidden md:block mt-4 text-xs text-kumo-subtle">
 				Press <kbd>c</kbd> to write a message, <kbd>/</kbd> to search, <kbd>?</kbd> for shortcuts.
 			</p>

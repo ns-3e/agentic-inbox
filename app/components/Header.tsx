@@ -9,6 +9,7 @@ import {
 	FireIcon,
 	FunnelIcon,
 	GearSixIcon,
+	PaintBrushIcon,
 	KeyboardIcon,
 	ListIcon,
 	MagnifyingGlassIcon,
@@ -82,11 +83,11 @@ function SearchOptions({ initial, onSearch, onClose }: { initial: string; onSear
 				<div className="flex-1">{row("Before", before, setBefore, "date")}</div>
 			</div>
 			<div className="flex items-center gap-6 pt-1">
-				<label className="flex items-center gap-2 text-[13px] text-kumo-default cursor-pointer">
+				<label className="flex items-center gap-2 text-[0.8125rem] text-kumo-default cursor-pointer">
 					<input type="checkbox" checked={hasAttachment} onChange={(e) => setHasAttachment(e.target.checked)} className="h-4 w-4 accent-[var(--color-kumo-brand)]" />
 					Has attachment
 				</label>
-				<label className="flex items-center gap-2 text-[13px] text-kumo-default cursor-pointer">
+				<label className="flex items-center gap-2 text-[0.8125rem] text-kumo-default cursor-pointer">
 					<input type="checkbox" checked={unread} onChange={(e) => setUnread(e.target.checked)} className="h-4 w-4 accent-[var(--color-kumo-brand)]" />
 					Unread only
 				</label>
@@ -112,6 +113,7 @@ function useSectionName(): string | null {
 	if (pathname.endsWith("/search")) return new URLSearchParams(search).get("q") === "is:starred" ? "Starred" : "Search";
 	if (active === "burners") return "Burner addresses";
 	if (active === "settings") return "Routing & settings";
+	if (active === "preferences") return "Preferences";
 	const folder = NAV_FOLDERS.find((f) => f.id === active);
 	if (folder) return folder.label;
 	return active ? decodeURIComponent(active) : null;
@@ -188,7 +190,7 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 		<Menu
 			label="Switch scope"
 			align="left"
-			header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Switch scope</div>}
+			header={<div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-semibold text-kumo-subtle">Switch scope</div>}
 			items={[
 				{ label: "All mailboxes", icon: <StackIcon size={16} />, onSelect: () => navigate("/all/inbox") },
 				...mailboxes.map((m) => ({
@@ -209,7 +211,7 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 						type="button"
 						{...p}
 						aria-label={`Scope: ${current}`}
-						className="flex items-center gap-2 h-8 max-w-[18rem] pl-2 pr-1.5 rounded-md border border-[var(--ops-line-strong)] bg-kumo-base cursor-pointer hover:bg-kumo-tint text-[13px] text-kumo-default"
+						className="flex items-center gap-2 h-8 max-w-[18rem] pl-2 pr-1.5 rounded-md border border-[var(--ops-line-strong)] bg-kumo-base cursor-pointer hover:bg-kumo-tint text-[0.8125rem] text-kumo-default"
 					>
 						{mailboxId ? (
 							<span className="dot" style={{ backgroundColor: `hsl(${mailboxHue(mailboxId)} 60% 48%)` }} />
@@ -240,7 +242,7 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 					<span className="h-6 w-6 rounded-[5px] bg-kumo-brand text-kumo-inverse flex items-center justify-center shrink-0">
 						<TrayArrowDownIcon size={15} weight="bold" />
 					</span>
-					<span className="text-[13px] font-semibold tracking-[-0.01em] text-kumo-default truncate">Agentic Inbox</span>
+					<span className="text-[0.8125rem] font-semibold tracking-[-0.01em] text-kumo-default truncate">Agentic Inbox</span>
 				</button>}
 			</div>
 
@@ -250,14 +252,14 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 				{section && (
 					<>
 						<CaretRightIcon size={12} className="text-kumo-subtle shrink-0" />
-						<span className="text-[13px] font-semibold text-kumo-default truncate" aria-current="page">{section}</span>
+						<span className="text-[0.8125rem] font-semibold text-kumo-default truncate" aria-current="page">{section}</span>
 					</>
 				)}
 			</nav>
 
 			{/* Search */}
 			<div ref={searchBoxRef} className="relative flex-1 min-w-0 md:max-w-[560px] md:ml-auto">
-				<div className="flex items-center h-11 md:h-8 rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand focus-within:shadow-[0_0_0_3px_light-dark(rgb(11_110_120/0.15),rgb(54_170_180/0.25))] transition-[border-color,box-shadow]">
+				<div className="flex items-center h-11 md:h-8 rounded-md border border-[var(--ops-line-strong)] bg-kumo-control focus-within:border-kumo-brand focus-within:shadow-[0_0_0_3px_var(--ops-focus-ring)] transition-[border-color,box-shadow]">
 					<button type="button" onClick={toggleSidebar} aria-label="Open navigation drawer" className="md:hidden icon-btn">
 						<ListIcon size={22} />
 					</button>
@@ -276,7 +278,7 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
-						className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-base md:text-[13px] text-kumo-default placeholder:text-kumo-subtle px-1 [&::-webkit-search-cancel-button]:hidden"
+						className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-base md:text-[0.8125rem] text-kumo-default placeholder:text-kumo-subtle px-1 [&::-webkit-search-cancel-button]:hidden"
 					/>
 					{searchQuery ? (
 						<button type="button" onClick={clearSearch} className="icon-btn md:!h-7 md:!w-7" aria-label="Clear search" title="Clear search">
@@ -325,12 +327,13 @@ export default function Header({ onShowShortcuts }: { onShowShortcuts?: () => vo
 				</button>
 				<Menu
 					label="View options"
-					header={<div className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold text-kumo-subtle">Reading pane</div>}
+					header={<div className="px-2.5 pt-1.5 pb-1 text-[0.6875rem] font-semibold text-kumo-subtle">Reading pane</div>}
 					items={[
 						{ label: "Full-width list", icon: readingPane === "none" ? <CheckIcon size={16} /> : <span className="w-4" />, onSelect: () => setReadingPane("none") },
 						{ label: "Split: list and reader", icon: readingPane === "right" ? <CheckIcon size={16} /> : <span className="w-4" />, onSelect: () => setReadingPane("right") },
 						null,
 						...(onShowShortcuts ? [{ label: "Keyboard shortcuts", icon: <KeyboardIcon size={16} />, onSelect: onShowShortcuts }] : []),
+						{ label: "Preferences", icon: <PaintBrushIcon size={16} />, onSelect: () => navigate(mailboxId ? `/mailbox/${mailboxId}/preferences` : "/all/preferences") },
 						...(mailboxId ? [{ label: "Routing & settings", icon: <GearSixIcon size={16} />, onSelect: () => navigate(`/mailbox/${mailboxId}/settings`) }] : []),
 						{ label: "Mailbox directory", icon: <SquaresFourIcon size={16} />, onSelect: () => navigate("/") },
 					]}

@@ -66,7 +66,7 @@ export default function AgentSidebar({ agentName }: { agentName?: string } = {})
 							role="tab"
 							aria-selected={on}
 							onClick={() => setAgentTab(id)}
-							className={`flex items-center gap-1.5 h-10 px-2.5 -mb-px text-[13px] border-b-2 bg-transparent cursor-pointer transition-colors ${
+							className={`flex items-center gap-1.5 h-10 px-2.5 -mb-px text-[0.8125rem] border-b-2 bg-transparent cursor-pointer transition-colors ${
 								on ? "border-kumo-brand text-kumo-default font-semibold" : "border-transparent text-kumo-subtle hover:text-kumo-default"
 							}`}
 						>
