@@ -18,6 +18,7 @@ import {
 	TextAlignRightIcon,
 	TextTSlashIcon,
 } from "@phosphor-icons/react";
+import { Placeholder } from "@tiptap/extensions";
 import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import TiptapImage from "@tiptap/extension-image";
@@ -63,6 +64,8 @@ export function useComposeEditor({
 			TextStyle,
 			Color,
 			Highlight.configure({ multicolor: true }),
+			// Shows where to type on an empty body (it is easy to miss on a phone).
+			Placeholder.configure({ placeholder: placeholder ?? "Compose email" }),
 		],
 		content: initialHtml,
 		autofocus: autofocus ? "start" : false,

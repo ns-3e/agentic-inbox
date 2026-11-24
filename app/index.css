@@ -352,6 +352,15 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+@media (max-width: 767px) {
+  /* Phone parity: 44px touch targets (DESIGN.md). */
+  .btn {
+    height: 2.75rem;
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    border-radius: 8px;
+  }
+}
 .btn-primary {
   background: var(--color-kumo-brand);
   border-color: var(--color-kumo-brand);
@@ -417,6 +426,27 @@ textarea.field {
   font-size: 0.75rem;
   color: var(--text-color-kumo-subtle);
 }
+/* Selects share the field look: no native bevel, one chevron, room for it. */
+select.field {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='none' stroke='%23727b87' stroke-linecap='round' stroke-linejoin='round' stroke-width='20' d='M208 96l-80 80-80-80'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 0.875rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+@media (max-width: 767px) {
+  /* Phone parity: 44px touch targets for every text field and select. */
+  .field {
+    height: 2.75rem;
+    border-radius: 8px;
+  }
+}
+
+
 
 /* Status chips: small, square, semantic */
 .chip {
@@ -532,6 +562,24 @@ textarea.field {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-color-kumo-default);
+}
+@media (max-width: 767px) {
+  /* Phones: one compact row, so the strip does not push the work area
+     below the fold. */
+  .stat-strip {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  .stat {
+    padding: 0.5rem 0.75rem;
+  }
+  .stat-label {
+    line-height: 1.25;
+  }
+  .stat-value {
+    font-size: 1rem;
+  }
 }
 
 /* Configuration sections */
@@ -718,6 +766,13 @@ kbd,
 .compose-editor .ProseMirror p {
   margin: 0;
 }
+.compose-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--text-color-kumo-subtle);
+}
 @media (max-width: 767px) {
   .compose-editor .ProseMirror {
     min-height: 50vh;
@@ -760,4 +815,16 @@ kbd,
   }
 }
 
+}
+
+/* In the utilities layer: it must beat Kumo's `bg-kumo-recessed` utility. */
+@layer utilities {
+  /* Kumo switch, off state: the default track is almost white on white
+     (about 1.1:1). Give it a track that meets 3:1 against the surface. */
+  button[role="switch"][aria-checked="false"] {
+    background: light-dark(#858e9a, #66707c);
+  }
+  button[role="switch"][aria-checked="false"]:hover {
+    background: light-dark(#727b87, #747e8a);
+  }
 }

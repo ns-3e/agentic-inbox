@@ -274,12 +274,12 @@ function CatchAllSection({ mailboxId, domain }: { mailboxId: string; domain: str
 			) : (
 				<div className="space-y-3 max-w-lg">
 					{/* Route diagram */}
-					<div className="flex items-center gap-2 rounded-md border border-kumo-line bg-kumo-tint px-3 py-2.5 text-xs overflow-x-auto">
-						<span className="ops-mono text-kumo-default whitespace-nowrap">*@{domain}</span>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-kumo-line bg-kumo-tint px-3 py-2.5 text-xs">
+						<span className="ops-mono text-kumo-default break-all">*@{domain}</span>
 						<ArrowRightIcon size={12} className="text-kumo-subtle shrink-0" />
 						{target ? (
 							<>
-								<span className="ops-mono text-kumo-default whitespace-nowrap">{target}</span>
+								<span className="ops-mono text-kumo-default break-all">{target}</span>
 								<span className="text-kumo-subtle whitespace-nowrap">/ Other addresses</span>
 								<span className={`chip ml-auto ${routedHere ? "chip-accent" : ""}`}>{routedHere ? "This mailbox" : "Other mailbox"}</span>
 							</>

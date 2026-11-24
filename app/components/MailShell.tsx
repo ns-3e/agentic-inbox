@@ -40,6 +40,14 @@ export default function MailShell({
 
 	useEffect(() => hydratePrefs(), [hydratePrefs]);
 
+	// Phone drawer: Esc closes it, like every other overlay.
+	useEffect(() => {
+		if (!isSidebarOpen || isDesktop) return;
+		const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeSidebar();
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [isSidebarOpen, isDesktop, closeSidebar]);
+
 	// Gmail "g then i" style jumps.
 	const gPressed = useRef(0);
 	const folderPath = (f: string) => (unified ? `${basePath}/${f}` : `${basePath}/emails/${f}`);
@@ -92,6 +100,8 @@ export default function MailShell({
 					className={`fixed inset-y-0 left-0 z-40 w-[80vw] max-w-[300px] shadow-xl md:shadow-none md:static md:z-0 md:max-w-none transform transition-[transform,width] duration-200 ease-out md:translate-x-0 ${
 						sidebarCollapsed ? "md:w-[56px]" : "md:w-[232px]"
 					} ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} pb-[env(safe-area-inset-bottom)] md:pb-0 shrink-0`}
+					// A closed phone drawer is off screen: keep its links out of the tab order.
+					inert={!isDesktop && !isSidebarOpen ? true : undefined}
 				>
 					{sidebar(sidebarCollapsed && isDesktop)}
 				</div>

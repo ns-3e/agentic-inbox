@@ -50,13 +50,17 @@ const TABS = [
  * The automation dock: the agent console and the MCP endpoint.
  * @param agentName Agent instance to chat with. Defaults to the mailbox in the
  *   URL; the unified view passes UNIFIED_AGENT_NAME for the all-mailbox agent.
+ * @param leading Optional control before the tabs (the phone sheet's close
+ *   button), so the sheet needs no second header row.
  */
-export default function AgentSidebar({ agentName }: { agentName?: string } = {}) {
+export default function AgentSidebar({ agentName, leading }: { agentName?: string; leading?: React.ReactNode } = {}) {
 	const { agentTab, setAgentTab } = useUIStore();
 
 	return (
 		<div className="flex flex-col h-full">
-			<div role="tablist" aria-label="Automation" className="flex items-end gap-1 h-10 px-2 border-b border-kumo-line shrink-0 bg-[var(--ops-header)]">
+			<div className="flex items-end gap-1 px-2 border-b border-kumo-line shrink-0 bg-[var(--ops-header)]">
+				{leading && <div className="self-center mr-1">{leading}</div>}
+				<div role="tablist" aria-label="Automation" className="flex items-end gap-1 h-10 max-lg:h-12">
 				{TABS.map(({ id, label, icon: Icon }) => {
 					const on = agentTab === id;
 					return (
@@ -66,7 +70,7 @@ export default function AgentSidebar({ agentName }: { agentName?: string } = {})
 							role="tab"
 							aria-selected={on}
 							onClick={() => setAgentTab(id)}
-							className={`flex items-center gap-1.5 h-10 px-2.5 -mb-px text-[0.8125rem] border-b-2 bg-transparent cursor-pointer transition-colors ${
+							className={`flex items-center gap-1.5 h-10 max-lg:h-12 px-2.5 max-lg:px-3 -mb-px text-[0.8125rem] border-b-2 bg-transparent cursor-pointer transition-colors ${
 								on ? "border-kumo-brand text-kumo-default font-semibold" : "border-transparent text-kumo-subtle hover:text-kumo-default"
 							}`}
 						>
@@ -75,6 +79,7 @@ export default function AgentSidebar({ agentName }: { agentName?: string } = {})
 						</button>
 					);
 				})}
+				</div>
 			</div>
 
 			{/* Keep the agent mounted so the transcript is not lost. */}

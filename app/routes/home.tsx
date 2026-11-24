@@ -187,15 +187,16 @@ export default function HomeRoute() {
 						)}
 					</div>
 				</div>
-				<div className="ml-auto flex items-center gap-2">
-					<RouterLink to="/all/preferences" className="btn btn-ghost no-underline" title="Preferences">
+				<div className="ml-auto flex flex-wrap items-center gap-2">
+					<RouterLink to="/all/preferences" className="btn btn-ghost no-underline max-sm:!w-11 max-sm:!h-11 max-sm:!px-0" title="Preferences" aria-label="Preferences">
 						<PaintBrushIcon size={14} />
-						Preferences
+						<span className="max-sm:hidden">Preferences</span>
 					</RouterLink>
 					{accounts.length > 1 && (
 						<RouterLink to="/all/inbox" className="btn no-underline">
 							<StackIcon size={14} />
-							Open all mailboxes
+							<span className="max-sm:hidden">Open all mailboxes</span>
+							<span className="sm:hidden">All mailboxes</span>
 						</RouterLink>
 					)}
 					{!isConfigured && (
