@@ -84,24 +84,9 @@ export default function EmailIframe({ body: fullBody, autoSize, trimQuote = true
 		// Inline (cid:) images are served by this app, so they always load.
 		const imgSrc = blocked ? `data: cid: ${window.location.origin}` : "data: cid: https: http:";
 
-		// Height-reporting script: sends body.scrollHeight to the parent.
-		// Runs inside the opaque-origin sandbox so it has zero access to
-		// the parent page — it can only postMessage.
-		const heightScript = autoSize
-			? `<script>
-				function reportHeight() {
-					var h = document.body.scrollHeight;
-					if (h > 0) parent.postMessage({ __emailIframeHeight: true, height: h }, "*");
-				}
-				reportHeight();
-				setTimeout(reportHeight, 50);
-				setTimeout(reportHeight, 150);
-				setTimeout(reportHeight, 400);
-				window.addEventListener("load", reportHeight);
-				if (window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
-				document.addEventListener("load", reportHeight, true);
-			<\/script>`
-			: "";
+		// Fit + height script. Runs inside the opaque-origin sandbox so it has
+		// zero access to the parent page — it can only postMessage.
+		const frameScript = `<script>${buildFitScript(!!autoSize)}<\/script>`;
 
 		// Use srcdoc so the iframe is truly sandboxed (no same-origin access).
 		// We can't use doc.write() because that requires allow-same-origin.
@@ -146,7 +131,7 @@ pre {
 	background: #f3f4f6;
 	padding: 12px;
 	border-radius: 6px;
-	overflow-x: auto;
+	white-space: pre-wrap;
 	font-size: 13px;
 }
 table { border-collapse: collapse; max-width: 100%; }
@@ -156,7 +141,7 @@ h1, h2, h3 { margin: 8px 0 4px; }
 ul, ol { padding-left: 20px; margin: 4px 0; }
 </style>
 </head>
-<body>${cleanBody}${heightScript}</body>
+<body><div id="${FIT_ID}">${cleanBody}</div>${frameScript}</body>
 </html>`;
 	}, [body, autoSize, blocked]);
 
@@ -200,4 +185,55 @@ export function hasRemoteImages(html: string): boolean {
 		/url\(\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
 		/\bbackground\s*=\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
 		/\bsrcset\s*=/i.test(html);
+}
+
+const FIT_ID = "__email_fit";
+
+/**
+ * Scale that makes content of `contentWidth` fit in `frameWidth`.
+ * 1 when it already fits; otherwise the ratio, rounded down so that
+ * rounding never brings the horizontal scroll bar back.
+ */
+export function fitScale(contentWidth: number, frameWidth: number): number {
+	if (!(contentWidth > 0) || !(frameWidth > 0) || contentWidth <= frameWidth + 1) return 1;
+	return Math.floor((frameWidth / contentWidth) * 1000) / 1000;
+}
+
+/**
+ * Script injected into the email frame. It measures the natural width of the
+ * email; if that is wider than the frame, it applies CSS `zoom` so the whole
+ * message shows at the frame width. It runs again when images load and when
+ * the frame width changes. With `reportHeight`, it also posts the (zoomed)
+ * height to the parent so the frame can size itself.
+ */
+export function buildFitScript(reportHeight: boolean): string {
+	return `(function () {
+	var fitScale = ${fitScale.toString()};
+	var lastW = -1, lastH = -1, busy = false;
+	function el() { return document.getElementById(${JSON.stringify(FIT_ID)}); }
+	function update() {
+		var w = el();
+		if (!w || busy) return;
+		busy = true;
+		var frameW = document.documentElement.clientWidth;
+		w.style.zoom = "";
+		var contentW = w.scrollWidth;
+		var s = fitScale(contentW, frameW);
+		if (s < 1) w.style.zoom = String(s);
+		busy = false;
+		${reportHeight ? `var h = Math.ceil(document.body.scrollHeight);
+		if (h > 0 && (h !== lastH || frameW !== lastW)) {
+			lastH = h; lastW = frameW;
+			parent.postMessage({ __emailIframeHeight: true, height: h }, "*");
+		}` : ""}
+	}
+	update();
+	setTimeout(update, 50);
+	setTimeout(update, 150);
+	setTimeout(update, 400);
+	window.addEventListener("load", update);
+	window.addEventListener("resize", update);
+	document.addEventListener("load", update, true);
+	if (window.ResizeObserver) new ResizeObserver(update).observe(document.body);
+})();`;
 }
