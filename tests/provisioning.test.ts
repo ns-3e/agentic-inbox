@@ -162,6 +162,8 @@ describe("applySetup", () => {
 		]);
 		expect(results.find((r) => r.id === "sending")?.detail).toContain("not entitled");
 		expect(writes(calls)).toContain("PUT /zones/z1/email/routing/rules/catch_all");
+		// Cloudflare rejects the apex as "name" (it must be a subdomain): send no body.
+		expect(calls.find((c) => c.method === "POST" && c.path === "/zones/z1/email/routing/dns")?.body).toBeUndefined();
 	});
 });
 

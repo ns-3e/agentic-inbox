@@ -218,7 +218,8 @@ export async function applySetup(
 		switch (step.id) {
 			case "routing":
 				await run("routing", "Turned on Email Routing", async () => {
-					await cf(env, "POST", `/zones/${zone.id}/email/routing/dns`, { name: zone.name });
+					// No body: a "name" here means a subdomain, and the apex is rejected (code 2007).
+					await cf(env, "POST", `/zones/${zone.id}/email/routing/dns`);
 				});
 				break;
 			case "catchAll":
