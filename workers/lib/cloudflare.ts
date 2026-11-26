@@ -6,8 +6,8 @@
  * Cloudflare API access for setting up a domain's Email Routing and Email
  * Sending from the app. Needs the CF_API_TOKEN secret, with these permissions:
  *
- *   Zone      Zone: Read, Zone Settings: Edit, Email Routing Rules: Edit, Email Sending: Edit
- *   Account   Queues: Edit (only for delivery tracking)
+ *   Zone      Zone: Read, Zone Settings: Edit, Email Routing Rules: Edit
+ *   Account   Email Sending: Edit, Queues: Edit (Queues only for delivery tracking)
  *
  * Without the token the app still works; setup is then done in the dashboard.
  */

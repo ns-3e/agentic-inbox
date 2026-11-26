@@ -58,7 +58,7 @@ To turn it on:
    - Zone > Zone > Read
    - Zone > Zone Settings > Edit
    - Zone > Email Routing Rules > Edit
-   - Zone > Email Sending > Edit
+   - Account > Email Sending > Edit
    - Account > Queues > Edit (only for delivery tracking)
 2. Add it as a secret: `npx wrangler secret put CF_API_TOKEN`.
 3. If your Worker is not named `agentic-inbox`, set a `WORKER_NAME` variable to its name.
