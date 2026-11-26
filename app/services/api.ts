@@ -2,6 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import type { DomainSetup, StepResult } from "shared/provisioning";
 import type { Burner, CatchAllStatus, Contact, Email, Folder, Mailbox, MailboxSummary } from "~/types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -99,17 +100,28 @@ interface EmailListResponse {
 	totalCount: number;
 }
 
+export interface SetupOutcome {
+	results: StepResult[];
+	setup: DomainSetup;
+}
+
 // ---------- API client ----------
 
 const api = {
 	// Config
 	getConfig: () =>
-		get<{ domains: string[]; emailAddresses: string[] }>("/api/v1/config"),
+		get<{ domains: string[]; emailAddresses: string[]; cloudflare?: boolean }>("/api/v1/config"),
+
+	// Cloudflare setup
+	listZones: () => get<{ enabled: boolean; worker: string; zones: string[] }>("/api/v1/cloudflare/zones"),
+	getDomainSetup: (domain: string) => get<DomainSetup>(`/api/v1/domains/${encodeURIComponent(domain)}/setup`),
+	applyDomainSetup: (domain: string, opts: { address?: string; catchAll?: boolean }) =>
+		post<SetupOutcome>(`/api/v1/domains/${encodeURIComponent(domain)}/setup`, opts),
 
 	// Mailboxes
 	listMailboxes: () => get<Mailbox[]>("/api/v1/mailboxes"),
-	createMailbox: (email: string, name: string, settings?: unknown) =>
-		post<Mailbox>("/api/v1/mailboxes", { email, name, settings }),
+	createMailbox: (email: string, name: string, settings?: unknown, setup?: { catchAll?: boolean }) =>
+		post<Mailbox & { setup?: SetupOutcome; setupError?: string }>("/api/v1/mailboxes", { email, name, settings, setup }),
 	getMailbox: (mailboxId: string) =>
 		get<Mailbox>(`/api/v1/mailboxes/${mailboxId}`),
 	updateMailbox: (mailboxId: string, settings: unknown) =>
@@ -181,7 +193,7 @@ const api = {
 	listBurners: (mailboxId: string) =>
 		get<Burner[]>(`/api/v1/mailboxes/${mailboxId}/burners`),
 	createBurner: (mailboxId: string, data: { label?: string; localPart?: string; domain?: string }) =>
-		post<Burner>(`/api/v1/mailboxes/${mailboxId}/burners`, data),
+		post<Burner & { routeWarning?: string }>(`/api/v1/mailboxes/${mailboxId}/burners`, data),
 	updateBurner: (mailboxId: string, address: string, data: { enabled?: boolean; label?: string }) =>
 		patch<Burner>(`/api/v1/mailboxes/${mailboxId}/burners/${encodeURIComponent(address)}`, data),
 	deleteBurner: (mailboxId: string, address: string) =>

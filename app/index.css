@@ -719,6 +719,21 @@ kbd,
   color: var(--text-color-kumo-subtle);
 }
 
+/* Kumo (Base UI) dialogs, menus and toasts render in portals with no
+   z-index, so sticky table headers (z-index 1) and the app's own overlays
+   (z-50) painted over them. Each portal is put above the page. */
+[data-base-ui-portal] {
+  position: relative;
+  z-index: 60;
+}
+/* Kumo's dialog sizes set a min-width (lg: 32rem) wider than a phone, so
+   every large dialog overflowed the screen. Its max-width already fits. */
+@media (max-width: 639px) {
+  [data-base-ui-portal] [role="dialog"] {
+    min-width: 0 !important; /* beats the utilities layer */
+  }
+}
+
 /* Popup menu */
 .menu {
   min-width: 12rem;

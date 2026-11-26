@@ -40,6 +40,31 @@ The app can show whether each sent email was delivered, and put a "Delivery Stat
 
 If you do not want this feature, remove the `queues` block from `wrangler.jsonc`.
 
+### Cloudflare setup from the app (optional)
+
+With a Cloudflare API token, the app sets up each mailbox in Cloudflare for you. **New mailbox** then lists every domain in your Cloudflare account, shows what is already in place and what it will change, and applies the missing parts:
+
+- Turns on Email Routing for the domain.
+- Adds an Email Routing rule that delivers the address to this Worker. If a rule for that address forwards somewhere else, the app shows a warning first, then changes that rule.
+- Optionally sends unknown addresses on the domain to this Worker (the catch-all rule). The app does not change a catch-all that forwards somewhere else unless you tick the box.
+- Turns on Email Sending for the domain.
+- Subscribes the domain to the delivery-events queue, if that queue exists.
+
+Each mailbox's **Routing & settings** page shows the same status, with **Apply changes in Cloudflare** to fix or finish it. The Mailbox directory shows which mailboxes cannot send or receive. New burner addresses on a domain whose catch-all does not reach this Worker get their own rule.
+
+To turn it on:
+
+1. Create an API token (My Profile > API Tokens > Create Token > Custom token) with these permissions, for all zones you want to use and your account:
+   - Zone > Zone > Read
+   - Zone > Zone Settings > Edit
+   - Zone > Email Routing Rules > Edit
+   - Zone > Email Sending > Edit
+   - Account > Queues > Edit (only for delivery tracking)
+2. Add it as a secret: `npx wrangler secret put CF_API_TOKEN`.
+3. If your Worker is not named `agentic-inbox`, set a `WORKER_NAME` variable to its name.
+
+Deleting a mailbox does not change Cloudflare. Mail to the deleted address still reaches the Worker, which handles it like any unknown address on the domain.
+
 ### Troubleshooting Access
 
 1. If you see `Invalid or expired Access token`, that usually means `POLICY_AUD` or `TEAM_DOMAIN` secrets are incorrect.

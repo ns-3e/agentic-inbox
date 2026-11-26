@@ -34,4 +34,8 @@ export const queryKeys = {
 	},
 	config: ["config"] as const,
 	catchAll: ["catchall"] as const,
+	cloudflare: {
+		zones: ["cloudflare", "zones"] as const,
+		domain: (domain: string) => ["cloudflare", "domain", domain] as const,
+	},
 };

@@ -71,7 +71,7 @@ export default function BurnerCreateForm({
 		if (!canSubmit) return;
 		const base = { label: label.trim() || undefined, domain: domain || undefined };
 		try {
-			let burner: Burner | undefined;
+			let burner: (Burner & { routeWarning?: string }) | undefined;
 			if (mode === "custom") {
 				burner = await createMutation.mutateAsync({ ...base, localPart: customLocal });
 			} else {
@@ -92,6 +92,7 @@ export default function BurnerCreateForm({
 			setSuggestion(randomLocalPart());
 			const copied = await copy(burner.address);
 			toast.add({ title: copied ? `Created and copied ${burner.address}` : `Created ${burner.address}` });
+			if (burner.routeWarning) toast.add({ title: burner.routeWarning, variant: "error" });
 			onCreated?.(burner);
 		} catch (err) {
 			toast.add({ title: (err as Error).message || "Could not create burner", variant: "error" });

@@ -14,6 +14,7 @@ import {
 	generateMessageId,
 	buildThreadingHeaders,
 	listMailboxes,
+	availableDomains,
 } from "./lib/email-helpers";
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
@@ -22,7 +23,6 @@ import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
 import {
 	BurnerError,
-	configuredDomains,
 	createBurner,
 	deleteBurner,
 	getBurner,
@@ -31,16 +31,27 @@ import {
 	recordBurnerHit,
 } from "./lib/burners";
 import { listCatchAllStatus, setCatchAll, getCatchAllStatus } from "./lib/catchall";
+import { applySetup, cloudflareEnabled, CloudflareApiError, getDomainSetup, listZones, routeBurner, workerName } from "./lib/cloudflare";
+import { LOCAL_PART_HINT, LOCAL_PART_RE } from "../shared/burners";
 
 type AppContext = Context<MailboxContext>;
 
 // -- Request body schemas (kept for validation) ---------------------
 
+const SetupOptions = z.object({
+	/** Also send unknown addresses on the domain to this app. */
+	catchAll: z.boolean().optional(),
+});
+
 const CreateMailboxBody = z.object({
 	email: z.string().email(),
 	name: z.string().min(1),
 	settings: z.record(z.any()).optional(), // unvalidated — agentSystemPrompt goes straight to AI
+	/** Set up Email Routing and Email Sending for the address (needs CF_API_TOKEN). */
+	setup: SetupOptions.optional(),
 });
+
+const DOMAIN_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 const DraftBody = z.object({
 	to: z.string().optional(),
@@ -98,10 +109,55 @@ app.use("/api/v1/mailboxes/:mailboxId/*", requireMailbox);
 
 // -- Config ---------------------------------------------------------
 
-app.get("/api/v1/config", (c) => {
-	const domains = configuredDomains(c.env.DOMAINS);
+app.get("/api/v1/config", async (c) => {
+	const domains = await availableDomains(c.env);
 	const emailAddresses = c.env.EMAIL_ADDRESSES ?? [];
-	return c.json({ domains, emailAddresses });
+	return c.json({ domains, emailAddresses, cloudflare: cloudflareEnabled(c.env) });
+});
+
+// -- Cloudflare setup (Email Routing + Email Sending) ---------------
+
+function cloudflareError(c: Context, e: unknown) {
+	if (e instanceof CloudflareApiError) {
+		const status = e.status === 404 ? 404 : e.status === 501 ? 501 : 502;
+		return c.json({ error: e.message }, status);
+	}
+	throw e;
+}
+
+/** Zones in the Cloudflare account, for the domain picker. */
+app.get("/api/v1/cloudflare/zones", async (c) => {
+	if (!cloudflareEnabled(c.env)) return c.json({ enabled: false, worker: workerName(c.env), zones: [] });
+	try {
+		const zones = await listZones(c.env);
+		return c.json({ enabled: true, worker: workerName(c.env), zones: zones.map((z) => z.name) });
+	} catch (e) {
+		return cloudflareError(c, e);
+	}
+});
+
+app.get("/api/v1/domains/:domain/setup", async (c) => {
+	const domain = c.req.param("domain")!.toLowerCase();
+	if (!DOMAIN_RE.test(domain)) return c.json({ error: "Invalid domain" }, 400);
+	try {
+		return c.json(await getDomainSetup(c.env, domain));
+	} catch (e) {
+		return cloudflareError(c, e);
+	}
+});
+
+/** Apply the missing setup steps for a domain, and for one address on it. */
+app.post("/api/v1/domains/:domain/setup", async (c) => {
+	const domain = c.req.param("domain")!.toLowerCase();
+	if (!DOMAIN_RE.test(domain)) return c.json({ error: "Invalid domain" }, 400);
+	const body = SetupOptions.extend({ address: z.string().email().optional() }).parse(await c.req.json().catch(() => ({})));
+	const address = body.address?.toLowerCase();
+	if (address && address.split("@")[1] !== domain) return c.json({ error: `${address} is not on ${domain}` }, 400);
+	try {
+		return c.json(await applySetup(c.env, domain, { address, catchAll: body.catchAll }));
+	} catch (e) {
+		return cloudflareError(c, e);
+	}
 });
 
 // -- Mailboxes ------------------------------------------------------
@@ -112,8 +168,10 @@ app.get("/api/v1/mailboxes", async (c) => {
 });
 
 app.post("/api/v1/mailboxes", async (c) => {
-	const { name, settings, email: rawEmail } = CreateMailboxBody.parse(await c.req.json());
+	const { name, settings, email: rawEmail, setup } = CreateMailboxBody.parse(await c.req.json());
 	const email = rawEmail.toLowerCase();
+	const [local, domain = ""] = email.split("@");
+	if (!LOCAL_PART_RE.test(local)) return c.json({ error: LOCAL_PART_HINT }, 400);
 	const allowedAddresses = (c.env.EMAIL_ADDRESSES ?? []) as string[];
 	if (allowedAddresses.length > 0 && !allowedAddresses.map((a) => a.toLowerCase()).includes(email)) {
 		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES" }, 403);
@@ -126,7 +184,18 @@ app.post("/api/v1/mailboxes", async (c) => {
 	await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
 	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(email));
 	await stub.getFolders();
-	return c.json({ id: email, email, name, settings: finalSettings }, 201);
+	const mailbox = { id: email, email, name, settings: finalSettings };
+	// The mailbox exists before routing points at it, so no early mail is
+	// dropped. A failed step is reported; it can be retried from settings.
+	if (setup && cloudflareEnabled(c.env)) {
+		try {
+			const result = await applySetup(c.env, domain, { address: email, catchAll: setup.catchAll });
+			return c.json({ ...mailbox, setup: result }, 201);
+		} catch (e) {
+			return c.json({ ...mailbox, setupError: (e as Error).message }, 201);
+		}
+	}
+	return c.json(mailbox, 201);
 });
 
 app.get("/api/v1/mailboxes/:mailboxId", async (c) => {
@@ -498,7 +567,9 @@ app.post("/api/v1/mailboxes/:mailboxId/burners", async (c: AppContext) => {
 	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!);
 	const body = CreateBurnerBody.parse(await c.req.json().catch(() => ({})));
 	try {
-		return c.json(await createBurner(c.env.BUCKET, mailboxId, body, configuredDomains(c.env.DOMAINS)), 201);
+		const burner = await createBurner(c.env.BUCKET, mailboxId, body, await availableDomains(c.env));
+		const routeWarning = await routeBurner(c.env, burner.address);
+		return c.json(routeWarning ? { ...burner, routeWarning } : burner, 201);
 	} catch (e) {
 		if (e instanceof BurnerError) return c.json({ error: e.message }, e.status);
 		throw e;

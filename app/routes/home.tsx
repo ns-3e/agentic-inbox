@@ -5,15 +5,16 @@
 import {
 	Button,
 	Dialog,
-	Input,
 	Loader,
-	Select,
-	Text,
 	useKumoToastManager,
 } from "@cloudflare/kumo";
 import { ArrowRightIcon, CaretRightIcon, EnvelopeIcon, FireIcon, PaintBrushIcon, PlusIcon, StackIcon, TrashIcon, TrayArrowDownIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { addressHealth, type DomainSetup } from "shared/provisioning";
+import { HealthChip } from "~/components/CloudflareSetup";
+import NewMailboxDialog from "~/components/NewMailboxDialog";
+import { useDomainSetups, useZones } from "~/queries/cloudflare";
 import { Folders } from "shared/folders";
 import { mailboxHue, setMailboxOrder } from "~/components/EmailListRow";
 import { useBurners } from "~/queries/burners";
@@ -22,7 +23,6 @@ import { useUnifiedSummary } from "~/queries/emails";
 import { Link as RouterLink } from "react-router";
 import api from "~/services/api";
 import {
-	useCreateMailbox,
 	useDeleteMailbox,
 	useMailboxes,
 } from "~/queries/mailboxes";
@@ -35,7 +35,6 @@ export function meta() {
 export default function HomeRoute() {
 	const toastManager = useKumoToastManager();
 	const { data: mailboxes = [], refetch: refetchMailboxes, isFetched: mailboxesFetched } = useMailboxes();
-	const createMailbox = useCreateMailbox();
 	const deleteMailbox = useDeleteMailbox();
 
 	const { data: configData } = useQuery({
@@ -48,24 +47,12 @@ export default function HomeRoute() {
 	const emailAddresses = configData?.emailAddresses ?? [];
 
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [newPrefix, setNewPrefix] = useState("");
-	const [selectedDomain, setSelectedDomain] = useState("");
-	const [newName, setNewName] = useState("");
-	const [isCreating, setIsCreating] = useState(false);
-	const [createError, setCreateError] = useState<string | null>(null);
 	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 	const [mailboxToDelete, setMailboxToDelete] = useState<{
 		id: string;
 		email: string;
 	} | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
-
-	// Set default domain when config loads
-	useEffect(() => {
-		if (domains.length > 0 && !selectedDomain) {
-			setSelectedDomain(domains[0]);
-		}
-	}, [domains, selectedDomain]);
 
 	// Auto-create mailboxes from config (run once when both data sources are ready)
 	const autoCreateDone = useRef(false);
@@ -92,30 +79,6 @@ export default function HomeRoute() {
 		).then(() => { if (!cancelled) refetchMailboxes(); });
 		return () => { cancelled = true; };
 	}, [emailAddresses, mailboxes, refetchMailboxes]);
-
-	const handleCreate = async (e: FormEvent) => {
-		e.preventDefault();
-		setCreateError(null);
-		if (!newPrefix || !selectedDomain) {
-			setCreateError("Enter the address and choose a domain.");
-			return;
-		}
-		const email = `${newPrefix}@${selectedDomain}`;
-		const name = newName || newPrefix;
-		setIsCreating(true);
-		try {
-			await createMailbox.mutateAsync({ email, name });
-			toastManager.add({ title: `Mailbox ${email} created` });
-			setIsCreateOpen(false);
-			setNewPrefix("");
-			setNewName("");
-		} catch (err: unknown) {
-			const message = (err instanceof Error ? err.message : null) || "Failed to create mailbox";
-			setCreateError(message);
-		} finally {
-			setIsCreating(false);
-		}
-	};
 
 	const handleDelete = async () => {
 		if (!mailboxToDelete) return;
@@ -152,6 +115,23 @@ export default function HomeRoute() {
 	const otherUnread = accounts.reduce((n, a) => n + unread(a.id, Folders.OTHER), 0);
 	const allDomains = domains.length ? domains : [...new Set(accounts.map((a) => a.email.split("@")[1]).filter(Boolean))];
 	const catchAllTarget = (email: string) => catchAll.find((c) => c.mailboxId === email)?.domain;
+
+	// Cloudflare status of every mailbox domain (needs CF_API_TOKEN).
+	const { data: zones } = useZones();
+	const cfEnabled = zones?.enabled === true;
+	const mailboxDomains = useMemo(
+		() => [...new Set(accounts.map((a) => a.email.split("@")[1]?.toLowerCase()).filter((d): d is string => !!d))].sort(),
+		[accounts],
+	);
+	const setupQueries = useDomainSetups(mailboxDomains, cfEnabled);
+	const setupOf = (email: string): DomainSetup | undefined =>
+		setupQueries[mailboxDomains.indexOf(email.split("@")[1]?.toLowerCase() ?? "")]?.data;
+	const needSetup = cfEnabled
+		? accounts.filter((a) => {
+				const d = setupOf(a.email);
+				return d && addressHealth(d, a.email, zones?.worker) !== "ready";
+			}).length
+		: 0;
 
 	const askDelete = (account: { id: string; email: string }) => {
 		setMailboxToDelete({ id: account.id, email: account.email });
@@ -219,6 +199,7 @@ export default function HomeRoute() {
 						<DirStat label="Inbox unread" value={inboxUnread} accent={inboxUnread > 0} />
 						<DirStat label="Catch-all unread" value={otherUnread} />
 						<DirStat label="Domains" value={allDomains.length} />
+						{cfEnabled && <DirStat label="Need Cloudflare setup" value={needSetup} warn={needSetup > 0} />}
 					</div>
 
 					<section aria-labelledby="dir-mailboxes">
@@ -235,6 +216,7 @@ export default function HomeRoute() {
 										<th className="!text-right">Catch-all unread</th>
 										<th>Burners</th>
 										<th>Catch-all route</th>
+										{cfEnabled && <th>Cloudflare</th>}
 										<th className="w-[120px]"><span className="sr-only">Actions</span></th>
 									</tr>
 								</thead>
@@ -265,6 +247,11 @@ export default function HomeRoute() {
 														<span className="text-kumo-subtle text-xs">—</span>
 													)}
 												</td>
+												{cfEnabled && (
+													<td>
+														<CloudflareCell setup={setupOf(account.email)} address={account.email} worker={zones?.worker} />
+													</td>
+												)}
 												<td>
 													<div className="flex items-center justify-end gap-1">
 														<RouterLink to={`/mailbox/${account.id}`} className="btn btn-ghost !h-7 !px-2 !text-xs no-underline">
@@ -298,6 +285,7 @@ export default function HomeRoute() {
 												<span className="block text-xs text-kumo-subtle truncate">
 													{route ? `Collects *@${route}` : account.name !== account.email ? account.name : "Mailbox"}
 												</span>
+												{cfEnabled && <PhoneHealth setup={setupOf(account.email)} address={account.email} worker={zones?.worker} />}
 											</span>
 											{inbox > 0 && <span className="nav-count !bg-kumo-brand !text-kumo-inverse">{inbox}</span>}
 											<CaretRightIcon size={14} className="text-kumo-subtle" />
@@ -377,85 +365,12 @@ export default function HomeRoute() {
 				</div>
 			)}
 
-			{/* Create Dialog */}
-			<Dialog.Root open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-				<Dialog size="sm" className="p-6">
-					<Dialog.Title className="text-base font-semibold mb-5">
-						Create New Mailbox
-					</Dialog.Title>
-					<form onSubmit={handleCreate} className="space-y-4">
-						{createError && (
-							<Text variant="error" size="sm">
-								{createError}
-							</Text>
-						)}
-						<div>
-							<span className="text-sm font-medium text-kumo-default mb-1.5 block">
-								Address
-							</span>
-							<div className="flex items-center gap-2">
-								<div className="flex-1">
-									<Input
-										aria-label="Address prefix"
-										placeholder="info"
-										size="sm"
-										value={newPrefix}
-										onChange={(e) => setNewPrefix(e.target.value)}
-										required
-									/>
-								</div>
-								<span className="text-sm text-kumo-subtle">@</span>
-								{domains.length > 1 ? (
-									<div className="flex-1">
-							<Select
-								aria-label="Domain"
-								value={selectedDomain}
-								onValueChange={(value) => {
-									if (value) setSelectedDomain(value);
-								}}
-							>
-											{domains.map((d) => (
-												<Select.Option key={d} value={d}>
-													{d}
-												</Select.Option>
-											))}
-										</Select>
-									</div>
-								) : (
-									<span className="text-sm text-kumo-subtle">
-										{selectedDomain || "no domain"}
-									</span>
-								)}
-							</div>
-						</div>
-						<Input
-							label="Display name (optional)"
-							placeholder="Info"
-							size="sm"
-							value={newName}
-							onChange={(e) => setNewName(e.target.value)}
-						/>
-						<div className="flex justify-end gap-2 pt-2">
-							<Dialog.Close
-								render={(props) => (
-									<Button {...props} variant="secondary" size="sm">
-										Cancel
-									</Button>
-								)}
-							/>
-							<Button
-								type="submit"
-								variant="primary"
-								size="sm"
-								loading={isCreating}
-								disabled={!selectedDomain}
-							>
-								Create
-							</Button>
-						</div>
-					</form>
-				</Dialog>
-			</Dialog.Root>
+			<NewMailboxDialog
+				open={isCreateOpen}
+				onOpenChange={setIsCreateOpen}
+				configuredDomains={allDomains}
+				existing={accounts.map((a) => a.email)}
+			/>
 
 			{/* Delete Dialog */}
 			<Dialog.Root
@@ -474,7 +389,7 @@ export default function HomeRoute() {
 						<strong className="text-kumo-default">
 							{mailboxToDelete?.email}
 						</strong>
-						? This action cannot be undone.
+						? This action cannot be undone. Cloudflare routing is not changed: mail to the address then follows the catch-all route of its domain.
 					</Dialog.Description>
 					<div className="flex justify-end gap-2">
 						<Dialog.Close
@@ -499,12 +414,31 @@ export default function HomeRoute() {
 	);
 }
 
-function DirStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+function DirStat({ label, value, accent, warn }: { label: string; value: number; accent?: boolean; warn?: boolean }) {
 	return (
 		<div className="stat">
 			<div className="stat-label">{label}</div>
-			<div className={`stat-value ${accent ? "text-kumo-brand" : ""}`}>{value.toLocaleString()}</div>
+			<div className={`stat-value ${accent ? "text-kumo-brand" : warn ? "text-[var(--ops-warn)]" : ""}`}>{value.toLocaleString()}</div>
 		</div>
+	);
+}
+
+/** Can the mailbox receive and send, per Cloudflare. Links to the fix. */
+function CloudflareCell({ setup, address, worker }: { setup: DomainSetup | undefined; address: string; worker?: string }) {
+	if (!setup) return <span className="text-xs text-kumo-subtle">…</span>;
+	return (
+		<RouterLink to={`/mailbox/${encodeURIComponent(address)}/settings#cfg-cloudflare`} className="no-underline" title="Open the Cloudflare setup">
+			<HealthChip setup={setup} address={address} worker={worker} />
+		</RouterLink>
+	);
+}
+
+function PhoneHealth({ setup, address, worker }: { setup: DomainSetup | undefined; address: string; worker?: string }) {
+	if (!setup || addressHealth(setup, address, worker) === "ready") return null;
+	return (
+		<span className="block mt-0.5">
+			<HealthChip setup={setup} address={address} worker={worker} />
+		</span>
 	);
 }
 

@@ -13,7 +13,7 @@ import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
-import { type Burner, getBurner } from "./burners";
+import { type Burner, configuredDomains, getBurner } from "./burners";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -43,6 +43,16 @@ export async function listMailboxes(
 		const id = obj.key.replace("mailboxes/", "").replace(".json", "");
 		return { id, email: id };
 	});
+}
+
+/**
+ * Domains the app works with: the DOMAINS variable plus the domain of every
+ * mailbox, so a mailbox created on a new domain makes that domain available
+ * for burners without a redeploy.
+ */
+export async function availableDomains(env: Env): Promise<string[]> {
+	const fromMailboxes = (await listMailboxes(env.BUCKET)).map((m) => m.id.split("@")[1]?.toLowerCase()).filter((d): d is string => !!d);
+	return [...new Set([...configuredDomains(env.DOMAINS).map((d) => d.toLowerCase()), ...fromMailboxes])];
 }
 
 // ── Sender Validation ──────────────────────────────────────────────

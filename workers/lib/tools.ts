@@ -22,6 +22,7 @@ import {
 	buildQuotedReplyBlock,
 	textToHtml,
 	listMailboxes,
+	availableDomains,
 	generateMessageId,
 	buildReferencesChain,
 	buildThreadingHeaders,
@@ -30,7 +31,8 @@ import { verifyDraft } from "./ai";
 import { sendEmail } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
-import { BurnerError, configuredDomains, createBurner, findThreadBurner, getBurner, listBurners, putBurner } from "./burners";
+import { routeBurner } from "./cloudflare";
+import { BurnerError, createBurner, findThreadBurner, getBurner, listBurners, putBurner } from "./burners";
 
 // ── Type casts for DO methods not on the base stub type ────────────
 type MailboxSearchStub = {
@@ -593,8 +595,13 @@ export async function toolCreateBurner(
 	params: { label?: string; localPart?: string; domain?: string },
 ) {
 	try {
-		const burner = await createBurner(env.BUCKET, mailboxId, params, configuredDomains(env.DOMAINS));
-		return { burner, note: `Mail to ${burner.address} is delivered to ${mailboxId}'s Inbox.` };
+		const burner = await createBurner(env.BUCKET, mailboxId, params, await availableDomains(env));
+		const routeWarning = await routeBurner(env, burner.address);
+		return {
+			burner,
+			note: `Mail to ${burner.address} is delivered to ${mailboxId}'s Other addresses folder.`,
+			...(routeWarning ? { warning: routeWarning } : {}),
+		};
 	} catch (e) {
 		if (e instanceof BurnerError) return { error: e.message };
 		throw e;

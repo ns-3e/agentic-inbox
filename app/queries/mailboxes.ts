@@ -27,10 +27,14 @@ export function useMailbox(mailboxId: string | undefined) {
 export function useCreateMailbox() {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: ({ email, name }: { email: string; name: string }) =>
-			api.createMailbox(email, name),
-		onSuccess: () => {
+		mutationFn: ({ email, name, setup }: { email: string; name: string; setup?: { catchAll?: boolean } }) =>
+			api.createMailbox(email, name, undefined, setup),
+		onSuccess: (data, { email }) => {
 			qc.invalidateQueries({ queryKey: queryKeys.mailboxes.all });
+			// A new domain becomes available for burners.
+			qc.invalidateQueries({ queryKey: queryKeys.config });
+			qc.invalidateQueries({ queryKey: queryKeys.catchAll });
+			if (data.setup) qc.setQueryData(queryKeys.cloudflare.domain(email.split("@")[1] ?? ""), data.setup.setup);
 		},
 	});
 }

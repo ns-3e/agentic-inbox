@@ -5,7 +5,8 @@
 import { Loader, Switch, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowCounterClockwiseIcon, ArrowRightIcon, GearSixIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
+import { DomainSetupPanel } from "~/components/CloudflareSetup";
 import { useCatchAll, useSetCatchAll } from "~/queries/catchall";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 
@@ -33,6 +34,13 @@ export default function SettingsRoute() {
 			setSigText(mailbox.settings?.signature?.text || "");
 		}
 	}, [mailbox]);
+
+	// Links such as #cfg-cloudflare scroll to their section once it renders.
+	const { hash } = useLocation();
+	const loaded = !!mailbox;
+	useEffect(() => {
+		if (loaded && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
+	}, [loaded, hash]);
 
 	const savedSigEnabled = !!mailbox?.settings?.signature?.enabled;
 	const savedSigText = mailbox?.settings?.signature?.text || "";
@@ -154,6 +162,17 @@ export default function SettingsRoute() {
 								</div>
 							)}
 						</div>
+					</section>
+
+					<section id="cfg-cloudflare" className="config-section scroll-mt-2" aria-labelledby="cfg-cloudflare-title">
+						<div>
+							<h2 id="cfg-cloudflare-title" className="config-title">Cloudflare delivery</h2>
+							<p className="config-desc">
+								What Cloudflare needs so this address can receive and send: Email Routing, a route to this app, Email Sending and
+								delivery tracking. The app shows each change before it applies it.
+							</p>
+						</div>
+						<DomainSetupPanel domain={domain} address={mailbox.email} />
 					</section>
 
 					<CatchAllSection mailboxId={mailbox.email} domain={domain} />
